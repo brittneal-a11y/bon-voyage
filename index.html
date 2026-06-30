@@ -1665,6 +1665,26 @@ document.querySelectorAll(".overlay").forEach(o=>{
 const HUMAN_CATEGORIES = ["Medications","Toiletries","Electronics","Clothing","Accessories","Documents","Other"];
 const PET_CATEGORIES   = ["Food","Leash & Collar","Bed","Toys","Medications","Grooming","Other"];
 
+const CATEGORY_COLORS = {
+  "Medications":   {bg:"#FDECEA", text:"#9B2B2B"},
+  "Toiletries":    {bg:"#E8F4FD", text:"#1A5C8A"},
+  "Electronics":   {bg:"#EEE8FD", text:"#5B35A8"},
+  "Clothing":      {bg:"#E8F1F0", text:"#22534F"},
+  "Accessories":   {bg:"#FEF3E2", text:"#8A5A00"},
+  "Documents":     {bg:"#F0F4E8", text:"#3D5C1A"},
+  "Food":          {bg:"#FEF3E2", text:"#8A5A00"},
+  "Leash & Collar":{bg:"#E8F1F0", text:"#22534F"},
+  "Bed":           {bg:"#EEE8FD", text:"#5B35A8"},
+  "Toys":          {bg:"#FDEEF5", text:"#8A1A5C"},
+  "Grooming":      {bg:"#E8F4FD", text:"#1A5C8A"},
+  "Other":         {bg:"#F0EDEA", text:"#6B5E52"},
+};
+
+function catStyle(cat){
+  const c = CATEGORY_COLORS[cat]||CATEGORY_COLORS["Other"];
+  return `background:${c.bg};color:${c.text};`;
+}
+
 function makeId(){ return Math.random().toString(36).slice(2,8); }
 
 /* ---- Inner tab switching on trip detail page ---- */
@@ -1701,7 +1721,7 @@ function renderEssentials(){
     if(memberItems.length===0) return "";
     const itemsHtml = memberItems.map(e=>`
       <div class="essential-item-row">
-        <span class="ess-cat">${escapeHtml(e.category)}</span>
+        <span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span>
         <span class="ess-name">${escapeHtml(e.item)}</span>
         <button class="remove-ess-btn" data-ess-id="${e.id}" title="Remove">×</button>
       </div>`).join("");
