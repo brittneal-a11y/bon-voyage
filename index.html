@@ -302,7 +302,93 @@
     font-size:13px;color:var(--ink-soft);
   }
 
-  /* ---- Weather override modal ---- */
+  /* ---- Activity chips ---- */
+  .activity-chip{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:12px;font-weight:600;padding:5px 10px;
+    border-radius:999px;background:#E8F1F0;color:var(--teal-dark);
+    cursor:default;
+  }
+  .activity-chip.has-outfit{background:#FEF3E2;color:#8A5A00;}
+  .activity-chip .chip-remove{
+    background:none;border:none;cursor:pointer;padding:0 0 0 3px;
+    font-size:13px;color:inherit;opacity:.6;line-height:1;
+  }
+  .activity-chip .chip-remove:hover{opacity:1;}
+  .day-card-body{
+    border-top:1px solid var(--line);
+    padding:10px 14px 12px;
+  }
+  .day-activity-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .plan-day-btn{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:13px;font-weight:600;color:var(--teal-dark);
+    background:none;border:1px solid var(--line);border-radius:8px;
+    padding:6px 12px;cursor:pointer;
+  }
+  .plan-day-btn:hover{border-color:var(--teal);background:#E8F1F0;}
+  .outfit-summary-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
+  .outfit-summary-pill{
+    font-size:11px;color:var(--ink-soft);background:#EFE8D9;
+    padding:3px 8px;border-radius:999px;
+  }
+
+  /* ---- Day plan page (reuses trip-detail-page slide-in styles) ---- */
+  /* ---- Outfit person cards ---- */
+  .outfit-person-card{
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:var(--radius);margin-bottom:14px;overflow:hidden;
+  }
+  .outfit-person-header{
+    display:flex;align-items:center;gap:10px;
+    padding:11px 14px;background:#EFE8D9;border-bottom:1px solid var(--line);
+  }
+  .outfit-person-header .pname{font-weight:700;font-size:15px;flex:1;}
+  .outfit-slot{padding:12px 14px;border-bottom:1px solid var(--line);}
+  .outfit-slot:last-child{border-bottom:none;}
+  .outfit-slot-label{
+    font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.09em;color:var(--ink-soft);margin-bottom:8px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .outfit-slot-label .slot-icon{font-size:14px;}
+  .outfit-items-list{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+  .outfit-item-row{
+    display:flex;align-items:center;gap:8px;
+    font-size:14px;color:var(--ink);padding:3px 0;
+  }
+  .outfit-item-row .item-bullet{color:var(--ink-soft);font-size:12px;}
+  .outfit-item-row .item-name{flex:1;}
+  .outfit-item-row .remove-item-btn{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);
+    font-size:14px;padding:2px 4px;border-radius:4px;line-height:1;
+  }
+  .outfit-item-row .remove-item-btn:hover{color:var(--rose);background:#FEE8E8;}
+  .outfit-add-row{display:flex;gap:6px;}
+  .outfit-add-row input{
+    flex:1;padding:8px 10px;border-radius:8px;
+    border:1px solid var(--line);background:var(--canvas);
+    font-family:'Inter';font-size:14px;color:var(--ink);
+  }
+  .outfit-add-row input:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  .outfit-add-row .add-item-btn{
+    background:var(--teal);color:#fff;border:none;border-radius:8px;
+    padding:8px 12px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;
+  }
+  .outfit-add-row .add-item-btn:hover{background:var(--teal-dark);}
+
+  /* ---- Activity library modal ---- */
+  .act-lib-row{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 4px;border-bottom:1px solid var(--line);cursor:pointer;
+  }
+  .act-lib-row:last-child{border-bottom:none;}
+  .act-lib-row input[type=checkbox]{width:18px;height:18px;accent-color:var(--teal);}
+  .act-lib-row .aname{flex:1;font-size:15px;font-weight:500;}
+  .act-lib-row .aoutfit{
+    font-size:11px;font-weight:700;color:#8A5A00;
+    background:#FEF3E2;padding:2px 7px;border-radius:999px;
+  }
   .cond-grid{
     display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:6px;
   }
@@ -452,6 +538,55 @@
   </div>
 </div>
 
+<!-- DAY PLAN PAGE (slides over trip detail) -->
+<div class="trip-detail-page" id="dayPlanPage" style="z-index:45;">
+  <div class="detail-header">
+    <button class="back-btn" id="backFromDayPlan">←</button>
+    <div class="detail-header-text">
+      <h2 id="dayPlanTitle"></h2>
+      <div class="detail-meta" id="dayPlanSubtitle"></div>
+    </div>
+    <button class="weather-edit-btn" id="dayPlanWeatherEditBtn" title="Edit weather">✏️</button>
+  </div>
+  <div class="detail-body">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;">
+      <div class="section-label" style="margin:0;">Activities</div>
+      <button class="btn btn-ghost" id="openAddActivityBtn" style="padding:7px 12px;font-size:13px;">+ Add</button>
+    </div>
+    <div id="dayActivitiesArea" style="margin-top:10px;min-height:36px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div>
+
+    <div class="section-label" style="margin-top:22px;">Outfits</div>
+    <div id="dayOutfitsArea"></div>
+  </div>
+</div>
+
+<!-- ADD ACTIVITY MODAL -->
+<div class="overlay" id="addActivityOverlay">
+  <div class="modal">
+    <h2>Activities for this day</h2>
+    <div id="activityLibraryList"></div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
+      <div class="section-label" style="margin:0 0 10px;">Add new to library</div>
+      <div class="field">
+        <label>Activity name</label>
+        <input type="text" id="newActivityName" placeholder="e.g. Hiking">
+      </div>
+      <div class="field">
+        <label>Outfit needed?</label>
+        <div class="type-toggle">
+          <button type="button" class="out-req-opt active" data-req="false">No — uses Standard</button>
+          <button type="button" class="out-req-opt" data-req="true">Yes — own slot</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-block" id="saveNewActivityBtn" style="margin-top:4px;">+ Add to library</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelAddActivity">Cancel</button>
+      <button class="btn btn-primary" id="doneAddActivity">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- WEATHER OVERRIDE MODAL -->
 <div class="overlay" id="weatherOverlay">
   <div class="modal">
@@ -480,7 +615,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, doc, addDoc, setDoc, deleteDoc,
+  getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -1047,12 +1182,20 @@ function renderDayCards(){
     return;
   }
   const overrides = t.weatherOverrides||{};
+  const humanRoster = (t.roster||[]).filter(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    return m && m.type==="human";
+  });
   $("dayCards").innerHTML = days.map(date=>{
     const w = overrides[date] || fetchedWeather[date] || null;
     const isManual = !!(overrides[date]);
     const d = new Date(date+"T00:00:00");
     const dow = d.toLocaleDateString(undefined,{weekday:"short"});
     const dateStr = d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+    const dayData = (t.days||{})[date]||{};
+    const activities = dayData.activities||[];
+    const outfits = dayData.outfits||{};
+
     let weatherHtml = "";
     if(w){
       weatherHtml = `
@@ -1070,6 +1213,21 @@ function renderDayCards(){
     } else {
       weatherHtml = `<div class="weather-chip"><span class="weather-unknown">Tap ✏️ to add</span></div>`;
     }
+
+    // Activity chips summary
+    const actChips = activities.map(a=>
+      `<span class="activity-chip ${a.requiresOutfit?'has-outfit':''}">${a.requiresOutfit?"👗 ":""}${escapeHtml(a.name)}</span>`
+    ).join("");
+
+    // Outfit item count per person
+    const outfitSummary = humanRoster.map(r=>{
+      const m = members.find(x=>x.id===r.memberId);
+      if(!m) return "";
+      const memberOutfits = outfits[m.id]||{};
+      const total = Object.values(memberOutfits).reduce((s,items)=>s+(Array.isArray(items)?items.length:0),0);
+      return total>0 ? `<span class="outfit-summary-pill">${m.emoji||"🧑🏽"} ${total} item${total!==1?"s":""}</span>` : "";
+    }).join("");
+
     return `
       <div class="day-card">
         <div class="day-card-header">
@@ -1078,12 +1236,21 @@ function renderDayCards(){
             <div class="date">${dateStr}</div>
           </div>
           ${weatherHtml}
-          <button class="weather-edit-btn" data-date="${date}" title="Edit weather">✏️</button>
+          <button class="weather-edit-btn" data-weather-date="${date}" title="Edit weather">✏️</button>
+        </div>
+        <div class="day-card-body">
+          ${activities.length>0?`<div class="day-activity-row">${actChips}</div>`:""}
+          ${outfitSummary?`<div class="outfit-summary-pills">${outfitSummary}</div>`:""}
+          <button class="plan-day-btn" data-plan-date="${date}">👗 Plan outfits &amp; activities →</button>
         </div>
       </div>`;
   }).join("");
-  $("dayCards").querySelectorAll("[data-date]").forEach(btn=>{
-    btn.addEventListener("click", ()=> openWeatherOverride(btn.dataset.date));
+
+  $("dayCards").querySelectorAll("[data-weather-date]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openWeatherOverride(btn.dataset.weatherDate));
+  });
+  $("dayCards").querySelectorAll("[data-plan-date]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openDayPlan(btn.dataset.planDate));
   });
 }
 
@@ -1133,6 +1300,288 @@ $("saveWeather").addEventListener("click", async ()=>{
     activeTrip.weatherOverrides[overrideDate] = entry;
     renderDayCards();
   }catch(err){ setStatus("Couldn't save weather: "+err.message, true); }
+});
+
+/* ---------- Phase 3: Activities & Outfits ---------- */
+
+const activitiesCol = collection(db, "activities");
+let savedActivities = [];
+let activeDayDate = null;
+let newActivityRequiresOutfit = false;
+let pendingDayActivityIds = new Set(); // IDs of saved activities checked for this day
+
+onSnapshot(query(activitiesCol, orderBy("createdAt","asc")), snap=>{
+  savedActivities = snap.docs.map(d=>({id:d.id,...d.data()}));
+});
+
+/* ---- Day plan page ---- */
+function openDayPlan(date){
+  activeDayDate = date;
+  const d = new Date(date+"T00:00:00");
+  $("dayPlanTitle").textContent = d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+
+  // Weather subtitle
+  const t = activeTrip;
+  const w = (t.weatherOverrides||{})[date] || fetchedWeather[date] || null;
+  $("dayPlanSubtitle").textContent = w ? `${w.icon} ${w.high!==undefined?w.high+"°":"—"} / ${w.low!==undefined?w.low+"°":"—"}  ${w.label||""}` : "No weather set";
+
+  renderDayActivitiesArea();
+  renderDayOutfitsArea();
+  $("dayPlanPage").classList.add("open");
+}
+
+function closeDayPlan(){
+  $("dayPlanPage").classList.remove("open");
+  activeDayDate = null;
+}
+
+$("backFromDayPlan").addEventListener("click", ()=>{
+  closeDayPlan();
+  renderDayCards(); // refresh trip detail cards with updated data
+});
+
+$("dayPlanWeatherEditBtn").addEventListener("click", ()=>{
+  if(activeDayDate) openWeatherOverride(activeDayDate);
+});
+
+/* ---- Render activities in day plan page ---- */
+function renderDayActivitiesArea(){
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const activities = dayData.activities||[];
+  const area = $("dayActivitiesArea");
+  if(activities.length===0){
+    area.innerHTML = `<span style="font-size:13px;color:var(--ink-soft);">No activities yet — tap Add.</span>`;
+    return;
+  }
+  area.innerHTML = activities.map((a,i)=>
+    `<span class="activity-chip ${a.requiresOutfit?'has-outfit':''}">
+      ${a.requiresOutfit?"👗 ":""}${escapeHtml(a.name)}
+      <button class="chip-remove" data-remove-act="${i}" title="Remove">×</button>
+    </span>`
+  ).join("");
+  area.querySelectorAll("[data-remove-act]").forEach(btn=>{
+    btn.addEventListener("click", ()=> removeActivityFromDay(parseInt(btn.dataset.removeAct)));
+  });
+}
+
+async function removeActivityFromDay(index){
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const activities = [...(dayData.activities||[])];
+  activities.splice(index,1);
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{[`days.${activeDayDate}.activities`]:activities});
+    if(!activeTrip.days) activeTrip.days={};
+    if(!activeTrip.days[activeDayDate]) activeTrip.days[activeDayDate]={};
+    activeTrip.days[activeDayDate].activities = activities;
+    renderDayActivitiesArea();
+    renderDayOutfitsArea();
+  }catch(err){ setStatus("Couldn't remove activity: "+err.message,true); }
+}
+
+/* ---- Render outfit slots per person ---- */
+function renderDayOutfitsArea(){
+  const t = activeTrip;
+  const humanRoster = (t.roster||[]).filter(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    return m && m.type==="human";
+  });
+  if(humanRoster.length===0){
+    $("dayOutfitsArea").innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">No human members on this trip's roster.</p>`;
+    return;
+  }
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const activities = dayData.activities||[];
+  const outfitActivities = activities.filter(a=>a.requiresOutfit);
+  const outfits = dayData.outfits||{};
+
+  $("dayOutfitsArea").innerHTML = humanRoster.map(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    if(!m) return "";
+    const memberOutfits = outfits[m.id]||{};
+
+    // Build slot list: standard + one per outfit-required activity
+    const slots = [
+      {key:"standard", label:"Standard Outfit", icon:""},
+      ...outfitActivities.map(a=>({key:`act_${a.id}`, label:`${a.name} Outfit`, icon:"👗 "}))
+    ];
+
+    const slotsHtml = slots.map(slot=>{
+      const items = memberOutfits[slot.key]||[];
+      const itemsHtml = items.map((item,idx)=>`
+        <div class="outfit-item-row">
+          <span class="item-bullet">·</span>
+          <span class="item-name">${escapeHtml(item)}</span>
+          <button class="remove-item-btn" data-m="${m.id}" data-slot="${slot.key}" data-idx="${idx}" title="Remove">×</button>
+        </div>`).join("");
+      return `
+        <div class="outfit-slot">
+          <div class="outfit-slot-label"><span class="slot-icon">${slot.icon}</span>${slot.label}</div>
+          <div class="outfit-items-list">${itemsHtml}</div>
+          <div class="outfit-add-row">
+            <input type="text" placeholder="Add item…" data-add-m="${m.id}" data-add-slot="${slot.key}">
+            <button class="add-item-btn" data-btn-m="${m.id}" data-btn-slot="${slot.key}">Add</button>
+          </div>
+        </div>`;
+    }).join("");
+
+    return `
+      <div class="outfit-person-card">
+        <div class="outfit-person-header">
+          <div class="avatar" style="background:${m.color}22;color:${m.color};width:32px;height:32px;font-size:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;">${m.emoji||"🧑🏽"}</div>
+          <span class="pname">${escapeHtml(m.name)}</span>
+        </div>
+        ${slotsHtml}
+      </div>`;
+  }).join("");
+
+  // Wire up remove buttons
+  $("dayOutfitsArea").querySelectorAll("[data-m][data-slot][data-idx]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      removeOutfitItem(btn.dataset.m, btn.dataset.slot, parseInt(btn.dataset.idx));
+    });
+  });
+
+  // Wire up add inputs + buttons
+  $("dayOutfitsArea").querySelectorAll("[data-add-m]").forEach(input=>{
+    input.addEventListener("keydown", e=>{
+      if(e.key==="Enter"){ e.preventDefault(); addOutfitItem(input.dataset.addM, input.dataset.addSlot, input); }
+    });
+  });
+  $("dayOutfitsArea").querySelectorAll("[data-btn-m]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const input = $("dayOutfitsArea").querySelector(`[data-add-m="${btn.dataset.btnM}"][data-add-slot="${btn.dataset.btnSlot}"]`);
+      if(input) addOutfitItem(btn.dataset.btnM, btn.dataset.btnSlot, input);
+    });
+  });
+}
+
+async function addOutfitItem(memberId, slotKey, inputEl){
+  const val = inputEl.value.trim();
+  if(!val) return;
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const existing = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
+  const updated = [...existing, val];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`days.${activeDayDate}.outfits.${memberId}.${slotKey}`]: updated
+    });
+    // Update local state
+    if(!activeTrip.days) activeTrip.days={};
+    if(!activeTrip.days[activeDayDate]) activeTrip.days[activeDayDate]={};
+    if(!activeTrip.days[activeDayDate].outfits) activeTrip.days[activeDayDate].outfits={};
+    if(!activeTrip.days[activeDayDate].outfits[memberId]) activeTrip.days[activeDayDate].outfits[memberId]={};
+    activeTrip.days[activeDayDate].outfits[memberId][slotKey] = updated;
+    inputEl.value = "";
+    renderDayOutfitsArea();
+  }catch(err){ setStatus("Couldn't save item: "+err.message,true); }
+}
+
+async function removeOutfitItem(memberId, slotKey, index){
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const existing = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
+  const updated = existing.filter((_,i)=>i!==index);
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`days.${activeDayDate}.outfits.${memberId}.${slotKey}`]: updated
+    });
+    activeTrip.days[activeDayDate].outfits[memberId][slotKey] = updated;
+    renderDayOutfitsArea();
+  }catch(err){ setStatus("Couldn't remove item: "+err.message,true); }
+}
+
+/* ---- Add Activity modal ---- */
+$("openAddActivityBtn").addEventListener("click", openAddActivityModal);
+$("cancelAddActivity").addEventListener("click", ()=> $("addActivityOverlay").classList.remove("open"));
+
+document.querySelectorAll(".out-req-opt").forEach(b=>{
+  b.addEventListener("click",()=>{
+    newActivityRequiresOutfit = b.dataset.req==="true";
+    document.querySelectorAll(".out-req-opt").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+  });
+});
+
+function openAddActivityModal(){
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const currentActivities = dayData.activities||[];
+  // Pre-check any saved activities already on this day (by globalId)
+  const currentGlobalIds = new Set(currentActivities.filter(a=>a.globalId).map(a=>a.globalId));
+  pendingDayActivityIds = new Set(currentGlobalIds);
+
+  renderActivityLibraryList(currentGlobalIds);
+  $("newActivityName").value = "";
+  newActivityRequiresOutfit = false;
+  document.querySelectorAll(".out-req-opt").forEach((b,i)=>b.classList.toggle("active",i===0));
+  $("addActivityOverlay").classList.add("open");
+}
+
+function renderActivityLibraryList(checkedIds){
+  const list = $("activityLibraryList");
+  if(savedActivities.length===0){
+    list.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">Your activity library is empty — add one below.</p>`;
+    return;
+  }
+  list.innerHTML = savedActivities.map(a=>`
+    <div class="act-lib-row" data-act-id="${a.id}">
+      <input type="checkbox" ${checkedIds.has(a.id)?"checked":""} id="act_${a.id}">
+      <label class="aname" for="act_${a.id}">${escapeHtml(a.name)}</label>
+      ${a.requiresOutfit?`<span class="aoutfit">Own outfit</span>`:""}
+    </div>`).join("");
+  list.querySelectorAll(".act-lib-row").forEach(row=>{
+    const cb = row.querySelector("input[type=checkbox]");
+    row.addEventListener("click", e=>{
+      if(e.target!==cb) cb.checked = !cb.checked;
+      if(cb.checked) pendingDayActivityIds.add(row.dataset.actId);
+      else pendingDayActivityIds.delete(row.dataset.actId);
+    });
+  });
+}
+
+$("saveNewActivityBtn").addEventListener("click", async ()=>{
+  const name = $("newActivityName").value.trim();
+  if(!name){ setStatus("Enter an activity name first.",true); return; }
+  try{
+    const docRef = await addDoc(activitiesCol,{
+      name, requiresOutfit: newActivityRequiresOutfit, createdAt: serverTimestamp()
+    });
+    $("newActivityName").value = "";
+    // Auto-check the new one
+    pendingDayActivityIds.add(docRef.id);
+    // Re-render list (snapshot will update savedActivities shortly, use optimistic)
+    savedActivities = [...savedActivities,{id:docRef.id,name,requiresOutfit:newActivityRequiresOutfit}];
+    renderActivityLibraryList(pendingDayActivityIds);
+    setStatus("");
+  }catch(err){ setStatus("Couldn't save activity: "+err.message,true); }
+});
+
+$("doneAddActivity").addEventListener("click", async ()=>{
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const currentActivities = dayData.activities||[];
+
+  // Build new activity list: checked saved activities + any custom (no globalId) already there
+  const customActivities = currentActivities.filter(a=>!a.globalId);
+  const newFromLibrary = savedActivities
+    .filter(a=>pendingDayActivityIds.has(a.id))
+    .map(a=>({id:a.id, globalId:a.id, name:a.name, requiresOutfit:a.requiresOutfit}));
+
+  const updatedActivities = [...newFromLibrary, ...customActivities];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`days.${activeDayDate}.activities`]: updatedActivities
+    });
+    if(!activeTrip.days) activeTrip.days={};
+    if(!activeTrip.days[activeDayDate]) activeTrip.days[activeDayDate]={};
+    activeTrip.days[activeDayDate].activities = updatedActivities;
+    $("addActivityOverlay").classList.remove("open");
+    renderDayActivitiesArea();
+    renderDayOutfitsArea();
+  }catch(err){ setStatus("Couldn't save activities: "+err.message,true); }
 });
 
 /* close overlays on backdrop click */
