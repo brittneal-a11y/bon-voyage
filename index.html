@@ -77,13 +77,14 @@
     box-shadow:var(--shadow);
     cursor:pointer;
     transition:transform .15s ease, box-shadow .15s ease;
+    --trip-color: var(--teal);
   }
   .trip-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(43,38,32,0.1);}
   .trip-card::before{
     content:'';
     position:absolute;left:0;top:14px;bottom:14px;width:10px;
     border-radius:6px 0 0 6px;
-    background:var(--teal);
+    background:var(--trip-color);
   }
   .trip-card .hole{
     position:absolute;left:14px;top:50%;transform:translateY(-50%);
@@ -405,6 +406,11 @@
       </div>
     </div>
 
+    <div class="field">
+      <label>Trip color</label>
+      <div class="color-row" id="tripColorRow"></div>
+    </div>
+
     <div class="section-label">Who's going</div>
     <div class="roster-list" id="rosterList"></div>
     <div class="add-guest">
@@ -427,7 +433,6 @@
       <h2 id="detailTripName"></h2>
       <div class="detail-meta" id="detailTripMeta"></div>
     </div>
-    <button class="icon-btn" id="deleteTripBtn" title="Delete trip" style="color:var(--rose);">🗑️</button>
   </div>
   <div class="detail-body">
     <div class="section-label" style="margin-top:16px;">Who's going</div>
@@ -441,6 +446,9 @@
       </div>
     </div>
     <div id="dayCards" style="margin-top:10px;"></div>
+    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);">
+      <button class="btn btn-danger btn-block" id="deleteTripBtn" style="justify-content:center;">🗑️ Delete this trip</button>
+    </div>
   </div>
 </div>
 
@@ -504,6 +512,7 @@ let oneOffGuests = []; // {id, name}
 let activeTripDetailId = null;
 let selectedLocation = null; // {name, lat, lon} once picked from suggestions
 let locDebounce = null;
+let selectedTripColor = COLORS[0];
 
 /* ---------- Location autocomplete (Open-Meteo geocoding, no key needed) ---------- */
 const locInput = ()=> $("tripLocation");
@@ -636,7 +645,29 @@ function renderTrips(){
     list.innerHTML = `<div class="empty"><span class="glyph">🏷️</span><p>No trips yet. Tap the + button to plan your first one.</p></div>`;
     return;
   }
-  list.innerHTML = trips.map(t=>{
+  const today = new Date().toISOString().split("T")[0];
+  const sorted = [...trips].sort((a,b)=>{
+    const aD = a.startDate||"", bD = b.startDate||"";
+    if(!aD && !bD) return 0;
+    if(!aD) return 1;
+    if(!bD) return -1;
+    const aFut = aD >= today, bFut = bD >= today;
+    if(aFut && !bFut) return -1;
+    if(!aFut && bFut) return 1;
+    if(aFut) return aD.localeCompare(bD);   // upcoming: soonest first
+    return bD.localeCompare(aD);             // past: most recent first
+  });
+  const today2 = new Date().toISOString().split("T")[0];
+  let lastWasPast = null;
+  list.innerHTML = sorted.map(t=>{
+    const isPast = t.startDate && t.startDate < today2;
+    let divider = "";
+    if(lastWasPast === false && isPast){
+      divider = `<div class="section-label" style="margin-top:20px;">Past trips</div>`;
+    } else if(lastWasPast === null && !isPast && t.startDate){
+      divider = `<div class="section-label">Upcoming</div>`;
+    }
+    lastWasPast = isPast;
     const roster = (t.roster||[]);
     const pills = roster.map(r=>{
       const m = members.find(x=>x.id===r.memberId);
@@ -646,8 +677,8 @@ function renderTrips(){
       if(!name) return "";
       return `<span class="pill"><span class="dot" style="background:${color};"></span>${emoji} ${escapeHtml(name)}</span>`;
     }).join("");
-    return `
-      <div class="trip-card" data-trip="${t.id}">
+    return divider + `
+      <div class="trip-card" data-trip="${t.id}" style="--trip-color:${t.color||'var(--teal)'}">
         <span class="hole"></span>
         <div class="tname">${escapeHtml(t.name)}</div>
         <div class="tmeta">${escapeHtml(t.location||"")}${t.location&&(t.startDate||t.endDate)?" · ":""}${formatRange(t.startDate,t.endDate)}</div>
@@ -685,6 +716,18 @@ function buildPickers(){
   }));
 }
 buildPickers();
+
+// Trip color picker
+function buildTripColorPicker(){
+  const row = $("tripColorRow");
+  row.innerHTML = COLORS.map(c=>`<button type="button" class="color-opt" data-tc="${c}" style="background:${c};"></button>`).join("");
+  row.querySelectorAll("[data-tc]").forEach(b=>b.addEventListener("click",()=>{
+    selectedTripColor = b.dataset.tc;
+    row.querySelectorAll(".color-opt").forEach(x=>x.classList.remove("selected"));
+    b.classList.add("selected");
+  }));
+}
+buildTripColorPicker();
 
 document.querySelectorAll(".type-opt").forEach(b=>{
   b.addEventListener("click", ()=>{
@@ -746,6 +789,8 @@ function openTripModal(){
   selectedLocation = null;
   updateLocConfirmed();
   closeSuggestions();
+  selectedTripColor = COLORS[0];
+  $("tripColorRow").querySelectorAll(".color-opt").forEach((b,i)=>b.classList.toggle("selected",i===0));
   $("tripStart").value = "";
   $("tripEnd").value = "";
   oneOffGuests = [];
@@ -821,6 +866,7 @@ $("saveTrip").addEventListener("click", async ()=>{
   try{
     await addDoc(tripsCol, {
       name, location, locationLat, locationLon, startDate, endDate, roster,
+      color: selectedTripColor,
       createdAt: serverTimestamp()
     });
     $("tripOverlay").classList.remove("open");
@@ -908,7 +954,7 @@ function openTripDetail(tripId){
   if(!t) return;
   activeTripDetailId = tripId;
   activeTrip = t;
-  fetchedWeather = {};
+  fetchedWeather = t.weatherCache || {}; // load persisted cache
 
   $("detailTripName").textContent = t.name;
   $("detailTripMeta").textContent = [t.location, formatRange(t.startDate,t.endDate)].filter(Boolean).join(" · ");
@@ -944,8 +990,10 @@ function openTripDetail(tripId){
     fetchNote = "Within forecast range";
     canFetch = true;
   }
+  const hasCachedWeather = t.weatherCache && Object.keys(t.weatherCache).length > 0;
   $("weatherFetchNote").textContent = fetchNote;
   $("fetchWeatherBtn").style.display = canFetch ? "inline-flex" : "none";
+  $("fetchWeatherBtn").textContent = hasCachedWeather ? "⛅ Refresh weather" : "⛅ Fetch weather";
 
   renderDayCards();
   $("tripDetailPage").classList.add("open");
@@ -957,6 +1005,7 @@ function closeTripDetail(){
   $("fabNewTrip").style.display = "";
   activeTrip = null;
   fetchedWeather = {};
+  activeTripDetailId = null;
 }
 
 $("backFromDetail").addEventListener("click", closeTripDetail);
@@ -973,9 +1022,20 @@ $("fetchWeatherBtn").addEventListener("click", async ()=>{
   const btn = $("fetchWeatherBtn");
   btn.textContent = "Fetching…"; btn.disabled = true;
   const w = await fetchWeatherForTrip(activeTrip);
-  btn.textContent = "⛅ Fetch weather"; btn.disabled = false;
-  if(w){ fetchedWeather = w; renderDayCards(); }
-  else { setStatus("Couldn't fetch weather — check your connection.", true); }
+  btn.disabled = false;
+  if(w){
+    fetchedWeather = w;
+    // Persist to Firestore so it survives re-opens
+    try{
+      await setDoc(doc(db,"trips",activeTripDetailId), { weatherCache: w }, {merge:true});
+      activeTrip.weatherCache = w;
+    }catch(err){ /* non-fatal, still render */ }
+    btn.textContent = "⛅ Refresh weather";
+    renderDayCards();
+  } else {
+    btn.textContent = "⛅ Refresh weather";
+    setStatus("Couldn't fetch weather — check your connection.", true);
+  }
 });
 
 function renderDayCards(){
