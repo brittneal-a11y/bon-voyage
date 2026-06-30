@@ -239,6 +239,84 @@
     font-size:12px;color:var(--ink-soft);text-align:center;padding:6px;
   }
   .status-banner.error{color:var(--rose);}
+
+  /* ---- Trip detail full-screen page ---- */
+  .trip-detail-page{
+    position:fixed;inset:0;background:var(--canvas);
+    transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    z-index:40;overflow-y:auto;padding-bottom:40px;
+  }
+  .trip-detail-page.open{transform:translateX(0);}
+  .detail-header{
+    position:sticky;top:0;background:var(--canvas);z-index:5;
+    padding:18px 18px 14px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+  }
+  .back-btn{
+    background:none;border:none;cursor:pointer;font-size:22px;
+    color:var(--teal-dark);padding:4px;line-height:1;
+  }
+  .detail-header-text{flex:1;min-width:0;}
+  .detail-header-text h2{font-size:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .detail-header-text .detail-meta{font-size:13px;color:var(--ink-soft);margin-top:2px;}
+  .detail-body{max-width:520px;margin:0 auto;padding:0 18px;}
+  .detail-roster-row{display:flex;gap:6px;flex-wrap:wrap;padding:14px 0 6px;}
+
+  /* ---- Day cards ---- */
+  .day-card{
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:var(--radius);margin-bottom:12px;overflow:hidden;
+    box-shadow:var(--shadow);
+  }
+  .day-card-header{
+    display:flex;align-items:center;padding:14px 14px 12px;gap:10px;
+  }
+  .day-label{min-width:52px;}
+  .day-label .dow{font-weight:700;font-size:15px;color:var(--ink);}
+  .day-label .date{font-size:12px;color:var(--ink-soft);}
+  .weather-chip{
+    flex:1;display:flex;align-items:center;gap:8px;
+  }
+  .weather-icon{font-size:24px;line-height:1;}
+  .weather-temps{font-size:13px;font-weight:600;color:var(--ink);}
+  .weather-temps .lo{color:var(--ink-soft);font-weight:400;}
+  .weather-cond-label{font-size:12px;color:var(--ink-soft);}
+  .weather-unknown{font-size:13px;color:var(--ink-soft);font-style:italic;}
+  .weather-edit-btn{
+    background:none;border:none;cursor:pointer;font-size:15px;
+    color:var(--ink-soft);padding:6px;border-radius:8px;
+  }
+  .weather-edit-btn:hover{background:var(--line);}
+  .weather-manual-badge{
+    font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    background:#EFE8D9;color:var(--ink-soft);padding:2px 6px;border-radius:999px;margin-left:4px;
+  }
+  .weather-fetch-row{
+    display:flex;align-items:center;gap:10px;padding:6px 0 14px;
+  }
+  .weather-fetch-note{font-size:12px;color:var(--ink-soft);}
+  .day-card-body{
+    border-top:1px solid var(--line);
+    padding:10px 14px;
+    font-size:13px;color:var(--ink-soft);
+  }
+
+  /* ---- Weather override modal ---- */
+  .cond-grid{
+    display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:6px;
+  }
+  .cond-btn{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:8px 4px;border-radius:10px;border:2px solid transparent;
+    background:var(--canvas-raised);cursor:pointer;font-size:10px;
+    color:var(--ink-soft);font-weight:600;
+  }
+  .cond-btn .cicon{font-size:22px;}
+  .cond-btn.selected{border-color:var(--teal);background:#E8F1F0;color:var(--teal-dark);}
+  .temp-row{display:flex;gap:10px;}
+  .temp-row .field{flex:1;}
+  .temp-row input{text-align:center;font-size:18px;font-weight:700;}
+  .temp-row label{text-align:center;}
 </style>
 </head>
 <body>
@@ -341,19 +419,52 @@
   </div>
 </div>
 
-<!-- TRIP DETAIL MODAL (phase 1: roster summary only) -->
-<div class="overlay" id="tripDetailOverlay">
+<!-- TRIP DETAIL PAGE (full-screen, slides in) -->
+<div class="trip-detail-page" id="tripDetailPage">
+  <div class="detail-header">
+    <button class="back-btn" id="backFromDetail" aria-label="Back">←</button>
+    <div class="detail-header-text">
+      <h2 id="detailTripName"></h2>
+      <div class="detail-meta" id="detailTripMeta"></div>
+    </div>
+    <button class="icon-btn" id="deleteTripBtn" title="Delete trip" style="color:var(--rose);">🗑️</button>
+  </div>
+  <div class="detail-body">
+    <div class="section-label" style="margin-top:16px;">Who's going</div>
+    <div class="detail-roster-row" id="detailRoster"></div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+      <div class="section-label" style="margin:0;">Days &amp; Weather</div>
+      <div class="weather-fetch-row">
+        <span class="weather-fetch-note" id="weatherFetchNote"></span>
+        <button class="btn btn-ghost" id="fetchWeatherBtn" style="padding:7px 12px;font-size:13px;">⛅ Fetch weather</button>
+      </div>
+    </div>
+    <div id="dayCards" style="margin-top:10px;"></div>
+  </div>
+</div>
+
+<!-- WEATHER OVERRIDE MODAL -->
+<div class="overlay" id="weatherOverlay">
   <div class="modal">
-    <h2 id="detailTripName"></h2>
-    <p id="detailTripMeta" style="color:var(--ink-soft);font-size:14px;margin-top:-10px;"></p>
-    <div class="section-label">Roster</div>
-    <div id="detailRoster"></div>
-    <p style="font-size:13px;color:var(--ink-soft);margin-top:16px;">
-      Days, weather, activities, and outfit planning land in the next build phase — this trip is saved and ready for it.
-    </p>
+    <h2 id="weatherModalTitle">Set weather</h2>
+    <div class="field">
+      <label>Condition</label>
+      <div class="cond-grid" id="condGrid"></div>
+    </div>
+    <div class="temp-row">
+      <div class="field">
+        <label>High (°F)</label>
+        <input type="number" id="tempHigh" placeholder="—" min="-40" max="140">
+      </div>
+      <div class="field">
+        <label>Low (°F)</label>
+        <input type="number" id="tempLow" placeholder="—" min="-40" max="140">
+      </div>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-danger" id="deleteTrip">Delete trip</button>
-      <button class="btn btn-ghost" id="closeTripDetail">Close</button>
+      <button class="btn btn-ghost" id="cancelWeather">Cancel</button>
+      <button class="btn btn-primary" id="saveWeather">Save</button>
     </div>
   </div>
 </div>
@@ -719,34 +830,249 @@ $("saveTrip").addEventListener("click", async ()=>{
   }
 });
 
-/* ---------- Trip detail ---------- */
+/* ---------- Trip detail page ---------- */
+const WMO_CONDITIONS = [
+  {code:[0],         icon:"☀️",  label:"Sunny"},
+  {code:[1],         icon:"🌤",  label:"Mostly Clear"},
+  {code:[2],         icon:"⛅",  label:"Partly Cloudy"},
+  {code:[3],         icon:"☁️",  label:"Overcast"},
+  {code:[45,48],     icon:"🌫",  label:"Foggy"},
+  {code:[51,53,55],  icon:"🌦",  label:"Drizzle"},
+  {code:[61,63,65,80,81,82], icon:"🌧", label:"Rain"},
+  {code:[71,73,75,77,85,86], icon:"❄️", label:"Snow"},
+  {code:[95,96,99],  icon:"⛈",  label:"Thunderstorm"},
+];
+const ALL_CONDITIONS = [
+  {icon:"☀️",label:"Sunny"},{icon:"🌤",label:"Mostly Clear"},{icon:"⛅",label:"Partly Cloudy"},
+  {icon:"☁️",label:"Overcast"},{icon:"🌫",label:"Foggy"},{icon:"🌦",label:"Drizzle"},
+  {icon:"🌧",label:"Rain"},{icon:"❄️",label:"Snow"},{icon:"🌨",label:"Flurries"},{icon:"⛈",label:"Thunderstorm"},
+];
+
+function wmoToCondition(code){
+  for(const c of WMO_CONDITIONS) if(c.code.includes(code)) return {icon:c.icon,label:c.label};
+  return {icon:"🌡",label:"Unknown"};
+}
+
+function generateDays(startDate, endDate){
+  if(!startDate) return [];
+  const days = [];
+  const cur = new Date(startDate+"T00:00:00");
+  const end = endDate ? new Date(endDate+"T00:00:00") : cur;
+  while(cur <= end){
+    const iso = cur.toISOString().split("T")[0];
+    days.push(iso);
+    cur.setDate(cur.getDate()+1);
+  }
+  return days;
+}
+
+async function fetchWeatherForTrip(trip){
+  if(!trip.locationLat || !trip.locationLon || !trip.startDate) return null;
+  const today = new Date();
+  const start = new Date(trip.startDate+"T00:00:00");
+  const end = trip.endDate ? new Date(trip.endDate+"T00:00:00") : start;
+  const maxForecast = new Date(today); maxForecast.setDate(today.getDate()+15);
+  // Only fetch days within forecast window
+  const fetchStart = start < today ? today : start;
+  if(fetchStart > maxForecast) return null;
+  const fetchEnd = end > maxForecast ? maxForecast : end;
+  const s = fetchStart.toISOString().split("T")[0];
+  const e = fetchEnd.toISOString().split("T")[0];
+  try{
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${trip.locationLat}&longitude=${trip.locationLon}&daily=weathercode,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&start_date=${s}&end_date=${e}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(!data.daily) return null;
+    const result = {};
+    data.daily.time.forEach((date,i)=>{
+      const cond = wmoToCondition(data.daily.weathercode[i]);
+      result[date] = {
+        icon: cond.icon,
+        label: cond.label,
+        high: Math.round(data.daily.temperature_2m_max[i]),
+        low:  Math.round(data.daily.temperature_2m_min[i]),
+        fetched: true,
+      };
+    });
+    return result;
+  }catch(e){ return null; }
+}
+
+let fetchedWeather = {}; // date -> weather obj (from API, not stored)
+let activeTrip = null;
+let overrideDate = null;
+let selectedCond = ALL_CONDITIONS[0];
+
 function openTripDetail(tripId){
   const t = trips.find(x=>x.id===tripId);
   if(!t) return;
   activeTripDetailId = tripId;
+  activeTrip = t;
+  fetchedWeather = {};
+
   $("detailTripName").textContent = t.name;
   $("detailTripMeta").textContent = [t.location, formatRange(t.startDate,t.endDate)].filter(Boolean).join(" · ");
+
+  // Roster
   const roster = t.roster||[];
   $("detailRoster").innerHTML = roster.map(r=>{
     const m = members.find(x=>x.id===r.memberId);
     const name = m ? m.name : r.guestName;
-    const emoji = m ? (m.emoji||"🙂") : "👤";
+    const emoji = m ? (m.emoji||"🧑🏽") : "👤";
     const color = m ? m.color : "#B0A693";
     if(!name) return "";
-    return `<div class="member-row"><div class="avatar" style="background:${color}22;color:${color};">${emoji}</div><div class="info"><div class="mname">${escapeHtml(name)}</div></div></div>`;
-  }).join("") || `<p style="font-size:13px;color:var(--ink-soft);">Nobody on the roster yet.</p>`;
-  $("tripDetailOverlay").classList.add("open");
+    return `<span class="pill"><span class="dot" style="background:${color};"></span>${emoji} ${escapeHtml(name)}</span>`;
+  }).join("") || `<span style="font-size:13px;color:var(--ink-soft);">Nobody on the roster.</span>`;
+
+  // Determine whether auto-fetch is possible
+  const today = new Date();
+  const maxForecast = new Date(today); maxForecast.setDate(today.getDate()+15);
+  const tripEnd = t.endDate ? new Date(t.endDate+"T00:00:00") : (t.startDate ? new Date(t.startDate+"T00:00:00") : null);
+  const tripStart = t.startDate ? new Date(t.startDate+"T00:00:00") : null;
+
+  let fetchNote = "";
+  let canFetch = false;
+  if(!t.locationLat){
+    fetchNote = "No matched location — set one to enable auto-fetch";
+  } else if(!t.startDate){
+    fetchNote = "Add trip dates to fetch weather";
+  } else if(tripEnd && tripEnd < today){
+    fetchNote = "Past trip — add weather manually";
+  } else if(tripStart && tripStart > maxForecast){
+    fetchNote = "Too far out for forecast — use manual entry";
+  } else {
+    fetchNote = "Within forecast range";
+    canFetch = true;
+  }
+  $("weatherFetchNote").textContent = fetchNote;
+  $("fetchWeatherBtn").style.display = canFetch ? "inline-flex" : "none";
+
+  renderDayCards();
+  $("tripDetailPage").classList.add("open");
+  $("fabNewTrip").style.display = "none";
 }
-$("closeTripDetail").addEventListener("click", ()=> $("tripDetailOverlay").classList.remove("open"));
-$("deleteTrip").addEventListener("click", async ()=>{
+
+function closeTripDetail(){
+  $("tripDetailPage").classList.remove("open");
+  $("fabNewTrip").style.display = "";
+  activeTrip = null;
+  fetchedWeather = {};
+}
+
+$("backFromDetail").addEventListener("click", closeTripDetail);
+$("deleteTripBtn").addEventListener("click", async ()=>{
   if(!activeTripDetailId) return;
   if(!confirm("Delete this trip? This can't be undone.")) return;
   try{
     await deleteDoc(doc(db,"trips",activeTripDetailId));
-    $("tripDetailOverlay").classList.remove("open");
-  }catch(err){
-    setStatus("Couldn't delete: "+err.message, true);
+    closeTripDetail();
+  }catch(err){ setStatus("Couldn't delete: "+err.message, true); }
+});
+
+$("fetchWeatherBtn").addEventListener("click", async ()=>{
+  const btn = $("fetchWeatherBtn");
+  btn.textContent = "Fetching…"; btn.disabled = true;
+  const w = await fetchWeatherForTrip(activeTrip);
+  btn.textContent = "⛅ Fetch weather"; btn.disabled = false;
+  if(w){ fetchedWeather = w; renderDayCards(); }
+  else { setStatus("Couldn't fetch weather — check your connection.", true); }
+});
+
+function renderDayCards(){
+  const t = activeTrip;
+  if(!t){ $("dayCards").innerHTML=""; return; }
+  const days = generateDays(t.startDate, t.endDate);
+  if(days.length===0){
+    $("dayCards").innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">Add start/end dates to the trip to see day cards.</p>`;
+    return;
   }
+  const overrides = t.weatherOverrides||{};
+  $("dayCards").innerHTML = days.map(date=>{
+    const w = overrides[date] || fetchedWeather[date] || null;
+    const isManual = !!(overrides[date]);
+    const d = new Date(date+"T00:00:00");
+    const dow = d.toLocaleDateString(undefined,{weekday:"short"});
+    const dateStr = d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+    let weatherHtml = "";
+    if(w){
+      weatherHtml = `
+        <div class="weather-chip">
+          <span class="weather-icon">${w.icon}</span>
+          <div>
+            <div class="weather-temps">
+              ${w.high!==undefined?w.high+"°":"—"}
+              <span class="lo">/ ${w.low!==undefined?w.low+"°":"—"}</span>
+              ${isManual?'<span class="weather-manual-badge">Manual</span>':""}
+            </div>
+            <div class="weather-cond-label">${w.label||""}</div>
+          </div>
+        </div>`;
+    } else {
+      weatherHtml = `<div class="weather-chip"><span class="weather-unknown">Tap ✏️ to add</span></div>`;
+    }
+    return `
+      <div class="day-card">
+        <div class="day-card-header">
+          <div class="day-label">
+            <div class="dow">${dow}</div>
+            <div class="date">${dateStr}</div>
+          </div>
+          ${weatherHtml}
+          <button class="weather-edit-btn" data-date="${date}" title="Edit weather">✏️</button>
+        </div>
+      </div>`;
+  }).join("");
+  $("dayCards").querySelectorAll("[data-date]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openWeatherOverride(btn.dataset.date));
+  });
+}
+
+/* ---------- Weather override modal ---------- */
+function buildCondGrid(selected){
+  $("condGrid").innerHTML = ALL_CONDITIONS.map((c,i)=>`
+    <button type="button" class="cond-btn ${c.label===selected?'selected':''}" data-ci="${i}">
+      <span class="cicon">${c.icon}</span>${c.label}
+    </button>`).join("");
+  $("condGrid").querySelectorAll(".cond-btn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      selectedCond = ALL_CONDITIONS[parseInt(b.dataset.ci)];
+      $("condGrid").querySelectorAll(".cond-btn").forEach(x=>x.classList.remove("selected"));
+      b.classList.add("selected");
+    });
+  });
+}
+
+function openWeatherOverride(date){
+  overrideDate = date;
+  const t = activeTrip;
+  const existing = (t.weatherOverrides||{})[date] || fetchedWeather[date] || null;
+  const d = new Date(date+"T00:00:00");
+  $("weatherModalTitle").textContent = "Weather — "+d.toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"});
+  selectedCond = existing ? (ALL_CONDITIONS.find(c=>c.label===existing.label)||ALL_CONDITIONS[0]) : ALL_CONDITIONS[0];
+  buildCondGrid(selectedCond.label);
+  $("tempHigh").value = existing?.high ?? "";
+  $("tempLow").value  = existing?.low  ?? "";
+  $("weatherOverlay").classList.add("open");
+}
+
+$("cancelWeather").addEventListener("click", ()=> $("weatherOverlay").classList.remove("open"));
+$("saveWeather").addEventListener("click", async ()=>{
+  if(!overrideDate || !activeTripDetailId) return;
+  const high = $("tempHigh").value !== "" ? parseInt($("tempHigh").value) : undefined;
+  const low  = $("tempLow").value  !== "" ? parseInt($("tempLow").value)  : undefined;
+  const entry = { icon: selectedCond.icon, label: selectedCond.label, manual: true };
+  if(high !== undefined) entry.high = high;
+  if(low  !== undefined) entry.low  = low;
+  try{
+    await setDoc(doc(db,"trips",activeTripDetailId), {
+      weatherOverrides: { [overrideDate]: entry }
+    }, {merge:true});
+    $("weatherOverlay").classList.remove("open");
+    // Optimistically update local activeTrip
+    if(!activeTrip.weatherOverrides) activeTrip.weatherOverrides = {};
+    activeTrip.weatherOverrides[overrideDate] = entry;
+    renderDayCards();
+  }catch(err){ setStatus("Couldn't save weather: "+err.message, true); }
 });
 
 /* close overlays on backdrop click */
