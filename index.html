@@ -464,7 +464,6 @@ function updateLocConfirmed(){
     box.textContent = "⚠ Pick a suggestion from the list so weather data lines up later";
   }
 }
-initLocationAutocomplete();
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (msg, isError=false) => {
@@ -754,6 +753,8 @@ $("deleteTrip").addEventListener("click", async ()=>{
 document.querySelectorAll(".overlay").forEach(o=>{
   o.addEventListener("click", (e)=>{ if(e.target===o) o.classList.remove("open"); });
 });
+
+initLocationAutocomplete();
 </script>
 </body>
 </html>
