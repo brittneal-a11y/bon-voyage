@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Bon Voyage — Family Trip Packing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#F7F2E9;
+    --canvas-raised:#FFFDF8;
+    --ink:#2B2620;
+    --ink-soft:#6B6256;
+    --teal:#2E6F6B;
+    --teal-dark:#22534F;
+    --amber:#D98E3B;
+    --rose:#B85C5C;
+    --sage:#7C9070;
+    --line:#E3DACB;
+    --radius:14px;
+    --shadow: 0 2px 8px rgba(43,38,32,0.06), 0 1px 2px rgba(43,38,32,0.08);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--canvas);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:88px;
+  }
+  h1,h2,h3{font-family:'Fraunces',serif;font-weight:600;margin:0;}
+  .app{max-width:520px;margin:0 auto;padding:0 18px;}
+
+  /* Header */
+  header.top{
+    padding:28px 18px 18px;
+    text-align:left;
+  }
+  header.top .eyebrow{
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--teal);font-weight:700;margin-bottom:4px;
+  }
+  header.top h1{font-size:30px;color:var(--ink);}
+  header.top p{margin:4px 0 0;color:var(--ink-soft);font-size:14px;}
+
+  /* Tabs */
+  nav.tabs{
+    display:flex;gap:6px;max-width:520px;margin:0 auto;padding:0 18px 14px;
+    position:sticky;top:0;background:var(--canvas);z-index:10;
+  }
+  nav.tabs button{
+    flex:1;padding:10px 0;border:none;background:transparent;
+    font-family:'Inter';font-weight:600;font-size:14px;color:var(--ink-soft);
+    border-bottom:2px solid var(--line);cursor:pointer;transition:.15s;
+  }
+  nav.tabs button.active{color:var(--teal-dark);border-bottom:2px solid var(--teal);}
+
+  section.view{display:none;padding:6px 0 24px;}
+  section.view.active{display:block;}
+
+  .empty{
+    text-align:center;padding:48px 20px;color:var(--ink-soft);
+  }
+  .empty .glyph{font-size:34px;display:block;margin-bottom:10px;}
+  .empty p{margin:0;font-size:14px;line-height:1.5;}
+
+  /* Luggage-tag trip card */
+  .trip-card{
+    position:relative;
+    background:var(--canvas-raised);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px 18px 16px 28px;
+    margin-bottom:16px;
+    box-shadow:var(--shadow);
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .trip-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(43,38,32,0.1);}
+  .trip-card::before{
+    content:'';
+    position:absolute;left:0;top:14px;bottom:14px;width:10px;
+    border-radius:6px 0 0 6px;
+    background:var(--teal);
+  }
+  .trip-card .hole{
+    position:absolute;left:14px;top:50%;transform:translateY(-50%);
+    width:7px;height:7px;border-radius:50%;background:var(--canvas);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.25);
+  }
+  .trip-card .tname{font-size:19px;color:var(--ink);}
+  .trip-card .tmeta{font-size:13px;color:var(--ink-soft);margin-top:3px;}
+  .trip-card .troster{
+    display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;
+  }
+  .pill{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:12px;font-weight:600;padding:4px 9px 4px 6px;
+    border-radius:999px;background:#EFE8D9;color:var(--ink);
+  }
+  .pill .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  /* Buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font-family:'Inter';font-weight:600;font-size:14px;
+    padding:12px 18px;border-radius:10px;border:none;cursor:pointer;
+    transition:.15s;
+  }
+  .btn-primary{background:var(--teal);color:#fff;}
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-ghost{background:transparent;color:var(--teal-dark);border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--teal);}
+  .btn-danger{background:transparent;color:var(--rose);}
+  .btn-block{width:100%;}
+  .fab{
+    position:fixed;bottom:24px;right:50%;transform:translateX(260px);
+    width:56px;height:56px;border-radius:50%;
+    background:var(--amber);color:#fff;font-size:26px;
+    box-shadow:0 6px 16px rgba(217,142,59,.45);
+    border:none;cursor:pointer;z-index:20;
+    display:flex;align-items:center;justify-content:center;
+  }
+  @media (max-width:560px){
+    .fab{right:24px;transform:none;}
+  }
+
+  /* Family member rows */
+  .member-row{
+    display:flex;align-items:center;gap:12px;
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;margin-bottom:10px;
+  }
+  .avatar{
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:19px;flex-shrink:0;
+  }
+  .member-row .info{flex:1;min-width:0;}
+  .member-row .mname{font-weight:600;font-size:15px;}
+  .member-row .mtype{font-size:12px;color:var(--ink-soft);text-transform:capitalize;}
+  .member-row .actions{display:flex;gap:4px;}
+  .icon-btn{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);
+    width:32px;height:32px;border-radius:8px;font-size:15px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .icon-btn:hover{background:var(--line);color:var(--ink);}
+
+  /* Modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(43,38,32,.45);
+    display:none;align-items:flex-end;justify-content:center;z-index:50;
+  }
+  .overlay.open{display:flex;}
+  @media (min-width:560px){ .overlay{align-items:center;} }
+  .modal{
+    background:var(--canvas);width:100%;max-width:520px;
+    border-radius:18px 18px 0 0;padding:22px 20px 28px;
+    max-height:88vh;overflow-y:auto;
+    animation:slideup .22s ease;
+  }
+  @media (min-width:560px){ .modal{border-radius:18px;} }
+  @keyframes slideup{from{transform:translateY(24px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .modal h2{font-size:22px;margin-bottom:18px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+  .field input, .field select{
+    width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+    background:var(--canvas-raised);font-family:'Inter';font-size:15px;color:var(--ink);
+  }
+  .field input:focus, .field select:focus{outline:2px solid var(--teal);outline-offset:1px;}
+  .row2{display:flex;gap:10px;}
+  .row2 .field{flex:1;}
+  .type-toggle{display:flex;gap:8px;}
+  .type-toggle button{
+    flex:1;padding:10px;border-radius:9px;border:1px solid var(--line);
+    background:var(--canvas-raised);font-family:'Inter';font-weight:600;font-size:14px;
+    cursor:pointer;color:var(--ink-soft);
+  }
+  .type-toggle button.active{border-color:var(--teal);color:var(--teal-dark);background:#E8F1F0;}
+  .emoji-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .emoji-opt{
+    width:38px;height:38px;border-radius:50%;border:2px solid transparent;
+    background:var(--canvas-raised);font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .emoji-opt.selected{border-color:var(--teal);}
+  .color-row{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;}
+  .color-opt{
+    width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;
+  }
+  .color-opt.selected{border-color:var(--ink);}
+
+  .roster-list{margin-top:6px;}
+  .loc-suggestions{
+    position:absolute;left:0;right:0;top:100%;margin-top:4px;
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:10px;box-shadow:var(--shadow);z-index:30;
+    max-height:220px;overflow-y:auto;display:none;
+  }
+  .loc-suggestions.open{display:block;}
+  .loc-suggestion{
+    padding:10px 12px;font-size:14px;cursor:pointer;
+    border-bottom:1px solid var(--line);
+  }
+  .loc-suggestion:last-child{border-bottom:none;}
+  .loc-suggestion:hover, .loc-suggestion.highlighted{background:#EFE8D9;}
+  .loc-suggestion .lname{font-weight:600;color:var(--ink);}
+  .loc-suggestion .lsub{font-size:12px;color:var(--ink-soft);}
+  .loc-confirmed{
+    font-size:12px;margin-top:5px;display:none;align-items:center;gap:5px;
+  }
+  .loc-confirmed.show{display:flex;}
+  .loc-confirmed.matched{color:var(--sage);}
+  .loc-confirmed.unmatched{color:var(--amber);}
+  .roster-item{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 4px;border-bottom:1px solid var(--line);
+  }
+  .roster-item:last-child{border-bottom:none;}
+  .roster-item input[type=checkbox]{width:19px;height:19px;accent-color:var(--teal);}
+  .roster-item .rname{flex:1;font-size:15px;font-weight:500;}
+  .roster-item .rtype{font-size:11px;color:var(--ink-soft);}
+  .add-guest{
+    display:flex;gap:8px;margin-top:10px;
+  }
+  .add-guest input{flex:1;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .modal-actions .btn{flex:1;}
+
+  .section-label{
+    font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:700;margin:18px 0 10px;
+  }
+  .status-banner{
+    font-size:12px;color:var(--ink-soft);text-align:center;padding:6px;
+  }
+  .status-banner.error{color:var(--rose);}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="eyebrow">Family Trip Packing</div>
+    <h1>Bon Voyage</h1>
+    <p>Plan it once. Pack it right every time.</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-view="trips">Trips</button>
+    <button class="tab-btn" data-view="family">Family</button>
+  </nav>
+
+  <div id="statusBanner" class="status-banner"></div>
+
+  <!-- TRIPS VIEW -->
+  <section class="view active" id="view-trips">
+    <div id="tripsList"></div>
+  </section>
+
+  <!-- FAMILY VIEW -->
+  <section class="view" id="view-family">
+    <div class="section-label">Household</div>
+    <div id="membersList"></div>
+    <button class="btn btn-ghost btn-block" id="openAddMember" style="margin-top:8px;">+ Add family member or pet</button>
+  </section>
+</div>
+
+<button class="fab" id="fabNewTrip" title="New trip" aria-label="New trip">+</button>
+
+<!-- ADD/EDIT MEMBER MODAL -->
+<div class="overlay" id="memberOverlay">
+  <div class="modal">
+    <h2 id="memberModalTitle">Add family member</h2>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="memberName" placeholder="e.g. Oliver">
+    </div>
+    <div class="field">
+      <label>Type</label>
+      <div class="type-toggle">
+        <button type="button" class="type-opt active" data-type="human">🧍 Person</button>
+        <button type="button" class="type-opt" data-type="pet">🐾 Pet</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Emoji tag</label>
+      <div class="emoji-row" id="emojiRow"></div>
+    </div>
+    <div class="field">
+      <label>Color tag</label>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelMember">Cancel</button>
+      <button class="btn btn-primary" id="saveMember">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW TRIP MODAL -->
+<div class="overlay" id="tripOverlay">
+  <div class="modal">
+    <h2>New trip</h2>
+    <div class="field">
+      <label>Trip name</label>
+      <input type="text" id="tripName" placeholder="e.g. Meadow Vista Cabin">
+    </div>
+    <div class="field" style="position:relative;">
+      <label>Location</label>
+      <input type="text" id="tripLocation" placeholder="Start typing a city..." autocomplete="off">
+      <div id="locationSuggestions" class="loc-suggestions"></div>
+      <div id="locationConfirmed" class="loc-confirmed"></div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Start date</label>
+        <input type="date" id="tripStart">
+      </div>
+      <div class="field">
+        <label>End date</label>
+        <input type="date" id="tripEnd">
+      </div>
+    </div>
+
+    <div class="section-label">Who's going</div>
+    <div class="roster-list" id="rosterList"></div>
+    <div class="add-guest">
+      <input type="text" id="guestName" placeholder="Add a one-off guest (e.g. Grandma)">
+      <button class="btn btn-ghost" id="addGuestBtn">Add</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelTrip">Cancel</button>
+      <button class="btn btn-primary" id="saveTrip">Create trip</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRIP DETAIL MODAL (phase 1: roster summary only) -->
+<div class="overlay" id="tripDetailOverlay">
+  <div class="modal">
+    <h2 id="detailTripName"></h2>
+    <p id="detailTripMeta" style="color:var(--ink-soft);font-size:14px;margin-top:-10px;"></p>
+    <div class="section-label">Roster</div>
+    <div id="detailRoster"></div>
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:16px;">
+      Days, weather, activities, and outfit planning land in the next build phase — this trip is saved and ready for it.
+    </p>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="deleteTrip">Delete trip</button>
+      <button class="btn btn-ghost" id="closeTripDetail">Close</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, doc, addDoc, setDoc, deleteDoc,
+  onSnapshot, query, orderBy, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAUTB2TcCv_aeKGSDgxDHmZb6vYgJtYIKY",
+  authDomain: "bon-voyage-d0a73.firebaseapp.com",
+  projectId: "bon-voyage-d0a73",
+  storageBucket: "bon-voyage-d0a73.firebasestorage.app",
+  messagingSenderId: "1006719831673",
+  appId: "1:1006719831673:web:62244b983578a887de4ea8"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const membersCol = collection(db, "members");
+const tripsCol = collection(db, "trips");
+
+const EMOJIS = ["🧑🏽","👩🏽","👨🏽","🧑🏾","👩🏾","👨🏾","🧒🏽","👧🏽","👦🏽","👶🏽","🧓🏽","🧔🏽","🐶","🐱","🐾"];
+const COLORS = ["#2E6F6B","#D98E3B","#B85C5C","#7C9070","#5C7CB8","#9B6CB8","#C77B3E"];
+
+let members = [];
+let trips = [];
+let editingMemberId = null;
+let selectedType = "human";
+let selectedEmoji = EMOJIS[0];
+let selectedColor = COLORS[0];
+let rosterSelections = {}; // memberId/guestId -> bool
+let oneOffGuests = []; // {id, name}
+let activeTripDetailId = null;
+let selectedLocation = null; // {name, lat, lon} once picked from suggestions
+let locDebounce = null;
+
+/* ---------- Location autocomplete (Open-Meteo geocoding, no key needed) ---------- */
+const locInput = ()=> $("tripLocation");
+const locSuggestBox = ()=> $("locationSuggestions");
+const locConfirmedBox = ()=> $("locationConfirmed");
+
+function initLocationAutocomplete(){
+  locInput().addEventListener("input", ()=>{
+    selectedLocation = null;
+    updateLocConfirmed();
+    const val = locInput().value.trim();
+    clearTimeout(locDebounce);
+    if(val.length < 2){ closeSuggestions(); return; }
+    locDebounce = setTimeout(()=> fetchLocationSuggestions(val), 300);
+  });
+  document.addEventListener("click", (e)=>{
+    if(!e.target.closest("#locationSuggestions") && e.target!==locInput()) closeSuggestions();
+  });
+}
+
+async function fetchLocationSuggestions(qstr){
+  try{
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(qstr)}&count=6&language=en&format=json`);
+    const data = await res.json();
+    renderSuggestions(data.results || []);
+  }catch(err){
+    closeSuggestions();
+  }
+}
+
+function renderSuggestions(results){
+  const box = locSuggestBox();
+  if(results.length===0){ closeSuggestions(); return; }
+  box.innerHTML = results.map((r,i)=>{
+    const sub = [r.admin1, r.country].filter(Boolean).join(", ");
+    return `<div class="loc-suggestion" data-i="${i}">
+      <div class="lname">${escapeHtml(r.name)}</div>
+      <div class="lsub">${escapeHtml(sub)}</div>
+    </div>`;
+  }).join("");
+  box.classList.add("open");
+  box.querySelectorAll(".loc-suggestion").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      const r = results[parseInt(el.dataset.i)];
+      const sub = [r.admin1, r.country].filter(Boolean).join(", ");
+      const display = sub ? `${r.name}, ${sub}` : r.name;
+      locInput().value = display;
+      selectedLocation = { name: display, lat: r.latitude, lon: r.longitude };
+      updateLocConfirmed();
+      closeSuggestions();
+    });
+  });
+}
+
+function closeSuggestions(){
+  locSuggestBox().classList.remove("open");
+  locSuggestBox().innerHTML = "";
+}
+
+function updateLocConfirmed(){
+  const box = locConfirmedBox();
+  const val = locInput().value.trim();
+  if(!val){ box.className="loc-confirmed"; box.textContent=""; return; }
+  if(selectedLocation){
+    box.className = "loc-confirmed show matched";
+    box.textContent = "✓ Matched — weather lookups will use this exact place";
+  } else {
+    box.className = "loc-confirmed show unmatched";
+    box.textContent = "⚠ Pick a suggestion from the list so weather data lines up later";
+  }
+}
+initLocationAutocomplete();
+
+const $ = (id) => document.getElementById(id);
+const setStatus = (msg, isError=false) => {
+  const el = $("statusBanner");
+  el.textContent = msg || "";
+  el.className = "status-banner" + (isError ? " error" : "");
+};
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll(".tab-btn").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    btn.classList.add("active");
+    $("view-"+btn.dataset.view).classList.add("active");
+  });
+});
+
+/* ---------- Live data ---------- */
+onSnapshot(query(membersCol, orderBy("createdAt","asc")), (snap)=>{
+  members = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  renderMembers();
+  renderTrips(); // roster pills depend on member data
+}, (err)=> setStatus("Couldn't load family members: "+err.message, true));
+
+onSnapshot(query(tripsCol, orderBy("createdAt","desc")), (snap)=>{
+  trips = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  renderTrips();
+}, (err)=> setStatus("Couldn't load trips: "+err.message, true));
+
+/* ---------- Render: Family ---------- */
+function renderMembers(){
+  const list = $("membersList");
+  if(members.length===0){
+    list.innerHTML = `<div class="empty"><span class="glyph">🧳</span><p>No family members yet.<br>Add everyone going on trips — humans and pets both.</p></div>`;
+    return;
+  }
+  list.innerHTML = members.map(m=>`
+    <div class="member-row">
+      <div class="avatar" style="background:${m.color}22;color:${m.color};">${m.emoji||"🙂"}</div>
+      <div class="info">
+        <div class="mname">${escapeHtml(m.name)}</div>
+        <div class="mtype">${m.type}</div>
+      </div>
+      <div class="actions">
+        <button class="icon-btn" data-edit="${m.id}" title="Edit">✏️</button>
+        <button class="icon-btn" data-del="${m.id}" title="Remove">🗑️</button>
+      </div>
+    </div>
+  `).join("");
+  list.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click", ()=>openMemberModal(b.dataset.edit)));
+  list.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click", ()=>removeMember(b.dataset.del)));
+}
+
+/* ---------- Render: Trips ---------- */
+function renderTrips(){
+  const list = $("tripsList");
+  if(trips.length===0){
+    list.innerHTML = `<div class="empty"><span class="glyph">🏷️</span><p>No trips yet. Tap the + button to plan your first one.</p></div>`;
+    return;
+  }
+  list.innerHTML = trips.map(t=>{
+    const roster = (t.roster||[]);
+    const pills = roster.map(r=>{
+      const m = members.find(x=>x.id===r.memberId);
+      const name = m ? m.name : r.guestName;
+      const color = m ? m.color : "#B0A693";
+      const emoji = m ? (m.emoji||"🙂") : "👤";
+      if(!name) return "";
+      return `<span class="pill"><span class="dot" style="background:${color};"></span>${emoji} ${escapeHtml(name)}</span>`;
+    }).join("");
+    return `
+      <div class="trip-card" data-trip="${t.id}">
+        <span class="hole"></span>
+        <div class="tname">${escapeHtml(t.name)}</div>
+        <div class="tmeta">${escapeHtml(t.location||"")}${t.location&&(t.startDate||t.endDate)?" · ":""}${formatRange(t.startDate,t.endDate)}</div>
+        <div class="troster">${pills}</div>
+      </div>
+    `;
+  }).join("");
+  list.querySelectorAll("[data-trip]").forEach(c=>c.addEventListener("click", ()=>openTripDetail(c.dataset.trip)));
+}
+
+function formatRange(start,end){
+  if(!start && !end) return "";
+  const fmt = (s)=> s ? new Date(s+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric"}) : "";
+  if(start && end) return `${fmt(start)} – ${fmt(end)}`;
+  return fmt(start)||fmt(end);
+}
+
+function escapeHtml(s){
+  return (s||"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ---------- Member modal ---------- */
+function buildPickers(){
+  $("emojiRow").innerHTML = EMOJIS.map(e=>`<button type="button" class="emoji-opt" data-emoji="${e}">${e}</button>`).join("");
+  $("colorRow").innerHTML = COLORS.map(c=>`<button type="button" class="color-opt" data-color="${c}" style="background:${c};"></button>`).join("");
+  $("emojiRow").querySelectorAll("[data-emoji]").forEach(b=>b.addEventListener("click",()=>{
+    selectedEmoji = b.dataset.emoji;
+    $("emojiRow").querySelectorAll(".emoji-opt").forEach(x=>x.classList.remove("selected"));
+    b.classList.add("selected");
+  }));
+  $("colorRow").querySelectorAll("[data-color]").forEach(b=>b.addEventListener("click",()=>{
+    selectedColor = b.dataset.color;
+    $("colorRow").querySelectorAll(".color-opt").forEach(x=>x.classList.remove("selected"));
+    b.classList.add("selected");
+  }));
+}
+buildPickers();
+
+document.querySelectorAll(".type-opt").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    selectedType = b.dataset.type;
+    document.querySelectorAll(".type-opt").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+  });
+});
+
+function openMemberModal(memberId){
+  editingMemberId = memberId || null;
+  const m = memberId ? members.find(x=>x.id===memberId) : null;
+  $("memberModalTitle").textContent = m ? "Edit family member" : "Add family member";
+  $("memberName").value = m ? m.name : "";
+  selectedType = m ? m.type : "human";
+  selectedEmoji = m ? (m.emoji||EMOJIS[0]) : EMOJIS[0];
+  selectedColor = m ? (m.color||COLORS[0]) : COLORS[0];
+  document.querySelectorAll(".type-opt").forEach(b=>b.classList.toggle("active", b.dataset.type===selectedType));
+  $("emojiRow").querySelectorAll(".emoji-opt").forEach(b=>b.classList.toggle("selected", b.dataset.emoji===selectedEmoji));
+  $("colorRow").querySelectorAll(".color-opt").forEach(b=>b.classList.toggle("selected", b.dataset.color===selectedColor));
+  $("memberOverlay").classList.add("open");
+}
+$("openAddMember").addEventListener("click", ()=>openMemberModal(null));
+$("cancelMember").addEventListener("click", ()=> $("memberOverlay").classList.remove("open"));
+
+$("saveMember").addEventListener("click", async ()=>{
+  const name = $("memberName").value.trim();
+  if(!name){ setStatus("Give them a name first.", true); return; }
+  const data = { name, type:selectedType, emoji:selectedEmoji, color:selectedColor };
+  try{
+    if(editingMemberId){
+      await setDoc(doc(db,"members",editingMemberId), data, {merge:true});
+    } else {
+      await addDoc(membersCol, {...data, createdAt: serverTimestamp()});
+    }
+    $("memberOverlay").classList.remove("open");
+    setStatus("");
+  }catch(err){
+    setStatus("Couldn't save: "+err.message, true);
+  }
+});
+
+async function removeMember(id){
+  if(!confirm("Remove this family member? This won't affect past trips they were already added to.")) return;
+  try{
+    await deleteDoc(doc(db,"members",id));
+  }catch(err){
+    setStatus("Couldn't remove: "+err.message, true);
+  }
+}
+
+/* ---------- Trip modal ---------- */
+$("fabNewTrip").addEventListener("click", openTripModal);
+$("cancelTrip").addEventListener("click", ()=> $("tripOverlay").classList.remove("open"));
+
+function openTripModal(){
+  $("tripName").value = "";
+  $("tripLocation").value = "";
+  selectedLocation = null;
+  updateLocConfirmed();
+  closeSuggestions();
+  $("tripStart").value = "";
+  $("tripEnd").value = "";
+  oneOffGuests = [];
+  rosterSelections = {};
+  members.forEach(m=> rosterSelections[m.id] = true); // default everyone in
+  renderRosterList();
+  $("tripOverlay").classList.add("open");
+}
+
+function renderRosterList(){
+  const list = $("rosterList");
+  let html = members.map(m=>`
+    <div class="roster-item">
+      <input type="checkbox" data-member="${m.id}" ${rosterSelections[m.id] ? "checked":""}>
+      <span class="rname">${m.emoji||"🙂"} ${escapeHtml(m.name)}</span>
+      <span class="rtype">${m.type}</span>
+    </div>
+  `).join("");
+  html += oneOffGuests.map(g=>`
+    <div class="roster-item">
+      <input type="checkbox" data-guest="${g.id}" checked>
+      <span class="rname">👤 ${escapeHtml(g.name)}</span>
+      <span class="rtype">guest</span>
+      <button class="icon-btn" data-remove-guest="${g.id}">✕</button>
+    </div>
+  `).join("");
+  if(members.length===0 && oneOffGuests.length===0){
+    html = `<p style="font-size:13px;color:var(--ink-soft);">No family members saved yet — add one-off guests below, or add your household under the Family tab.</p>`;
+  }
+  list.innerHTML = html;
+  list.querySelectorAll("[data-member]").forEach(cb=>{
+    cb.addEventListener("change", ()=> rosterSelections[cb.dataset.member] = cb.checked);
+  });
+  list.querySelectorAll("[data-guest]").forEach(cb=>{
+    cb.addEventListener("change", ()=> rosterSelections["guest:"+cb.dataset.guest] = cb.checked);
+  });
+  list.querySelectorAll("[data-remove-guest]").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      oneOffGuests = oneOffGuests.filter(g=>g.id!==b.dataset.removeGuest);
+      delete rosterSelections["guest:"+b.dataset.removeGuest];
+      renderRosterList();
+    });
+  });
+}
+
+$("addGuestBtn").addEventListener("click", ()=>{
+  const name = $("guestName").value.trim();
+  if(!name) return;
+  const id = "g"+Date.now();
+  oneOffGuests.push({id, name});
+  rosterSelections["guest:"+id] = true;
+  $("guestName").value = "";
+  renderRosterList();
+});
+
+$("saveTrip").addEventListener("click", async ()=>{
+  const name = $("tripName").value.trim();
+  const location = selectedLocation ? selectedLocation.name : $("tripLocation").value.trim();
+  const locationLat = selectedLocation ? selectedLocation.lat : null;
+  const locationLon = selectedLocation ? selectedLocation.lon : null;
+  const startDate = $("tripStart").value;
+  const endDate = $("tripEnd").value;
+  if(!name){ setStatus("Give the trip a name first.", true); return; }
+
+  const roster = [];
+  members.forEach(m=>{
+    if(rosterSelections[m.id]) roster.push({memberId:m.id});
+  });
+  oneOffGuests.forEach(g=>{
+    if(rosterSelections["guest:"+g.id]) roster.push({guestName:g.name});
+  });
+
+  try{
+    await addDoc(tripsCol, {
+      name, location, locationLat, locationLon, startDate, endDate, roster,
+      createdAt: serverTimestamp()
+    });
+    $("tripOverlay").classList.remove("open");
+    setStatus("");
+  }catch(err){
+    setStatus("Couldn't create trip: "+err.message, true);
+  }
+});
+
+/* ---------- Trip detail ---------- */
+function openTripDetail(tripId){
+  const t = trips.find(x=>x.id===tripId);
+  if(!t) return;
+  activeTripDetailId = tripId;
+  $("detailTripName").textContent = t.name;
+  $("detailTripMeta").textContent = [t.location, formatRange(t.startDate,t.endDate)].filter(Boolean).join(" · ");
+  const roster = t.roster||[];
+  $("detailRoster").innerHTML = roster.map(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    const name = m ? m.name : r.guestName;
+    const emoji = m ? (m.emoji||"🙂") : "👤";
+    const color = m ? m.color : "#B0A693";
+    if(!name) return "";
+    return `<div class="member-row"><div class="avatar" style="background:${color}22;color:${color};">${emoji}</div><div class="info"><div class="mname">${escapeHtml(name)}</div></div></div>`;
+  }).join("") || `<p style="font-size:13px;color:var(--ink-soft);">Nobody on the roster yet.</p>`;
+  $("tripDetailOverlay").classList.add("open");
+}
+$("closeTripDetail").addEventListener("click", ()=> $("tripDetailOverlay").classList.remove("open"));
+$("deleteTrip").addEventListener("click", async ()=>{
+  if(!activeTripDetailId) return;
+  if(!confirm("Delete this trip? This can't be undone.")) return;
+  try{
+    await deleteDoc(doc(db,"trips",activeTripDetailId));
+    $("tripDetailOverlay").classList.remove("open");
+  }catch(err){
+    setStatus("Couldn't delete: "+err.message, true);
+  }
+});
+
+/* close overlays on backdrop click */
+document.querySelectorAll(".overlay").forEach(o=>{
+  o.addEventListener("click", (e)=>{ if(e.target===o) o.classList.remove("open"); });
+});
+</script>
+</body>
+</html>
