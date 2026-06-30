@@ -338,11 +338,65 @@
     font-size:15px;padding:2px 4px;border-radius:4px;
   }
   .essential-item-row .remove-ess-btn:hover{color:var(--rose);}
+  /* ---- Phase 5: Packing list ---- */
+  .pack-trip-summary{
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px 16px;
+    display:flex;align-items:center;gap:14px;margin-bottom:14px;
+  }
+  .pack-trip-summary .trip-pct{
+    font-family:'Fraunces',serif;font-size:28px;font-weight:600;
+    color:var(--teal-dark);min-width:58px;
+  }
+  .pack-trip-summary .trip-prog-wrap{flex:1;}
+  .pack-trip-summary .trip-prog-label{font-size:13px;color:var(--ink-soft);margin-bottom:5px;}
+  .progress-bar-track{
+    width:100%;height:8px;background:var(--line);border-radius:999px;overflow:hidden;
+  }
+  .progress-bar-fill{
+    height:100%;background:var(--teal);border-radius:999px;transition:width .3s ease;
+  }
+  .progress-bar-fill.complete{background:var(--sage);}
+  .pack-person-card{
+    display:flex;align-items:center;gap:12px;
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;
+    transition:transform .12s, box-shadow .12s;
+  }
+  .pack-person-card:hover{transform:translateY(-1px);box-shadow:var(--shadow);}
+  .pack-person-card .pack-info{flex:1;min-width:0;}
+  .pack-person-card .pack-name{font-weight:700;font-size:15px;}
+  .pack-person-card .pack-prog-label{font-size:12px;color:var(--ink-soft);margin:4px 0 6px;}
+  .pack-person-card .pack-chevron{font-size:18px;color:var(--ink-soft);}
+  .pack-section-label{
+    font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--ink-soft);margin:18px 0 6px;padding-bottom:5px;
+    border-bottom:1px solid var(--line);
+  }
+  .pack-item-row{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 2px;border-bottom:1px solid var(--line);
+  }
+  .pack-item-row:last-child{border-bottom:none;}
+  .pack-item-row input[type=checkbox]{
+    width:20px;height:20px;accent-color:var(--teal);flex-shrink:0;cursor:pointer;
+  }
+  .pack-item-row .pack-item-name{flex:1;font-size:14px;transition:opacity .15s;}
+  .pack-item-row.is-packed .pack-item-name{text-decoration:line-through;opacity:.4;}
+  .pack-item-row .pack-item-note{font-size:11px;color:var(--ink-soft);white-space:nowrap;}
+  .person-pack-progress{
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px 16px;
+    display:flex;align-items:center;gap:14px;
+  }
+  .person-pack-progress .pct-big{
+    font-family:'Fraunces',serif;font-size:32px;font-weight:600;
+    color:var(--teal-dark);min-width:64px;
+  }
+  .person-pack-progress .prog-wrap{flex:1;}
+  .person-pack-progress .prog-label{font-size:13px;color:var(--ink-soft);margin-bottom:5px;}
+
   .activity-chip{
-    display:inline-flex;align-items:center;gap:5px;
-    font-size:12px;font-weight:600;padding:5px 10px;
-    border-radius:999px;background:#E8F1F0;color:var(--teal-dark);
-    cursor:default;
   }
   .activity-chip.has-outfit{background:#FEF3E2;color:#8A5A00;}
   .activity-chip .chip-remove{
@@ -561,8 +615,9 @@
 
     <!-- Inner tabs -->
     <nav class="inner-tabs">
-      <button class="inner-tab active" data-inner="days">📅 Days & Weather</button>
+      <button class="inner-tab active" data-inner="days">📅 Days</button>
       <button class="inner-tab" data-inner="essentials">🎒 Essentials</button>
+      <button class="inner-tab" data-inner="pack">✅ Pack</button>
     </nav>
 
     <!-- Days & Weather panel -->
@@ -580,9 +635,30 @@
       <button class="btn btn-ghost btn-block" id="addEssentialBtn" style="margin-top:4px;">+ Add essential</button>
     </div>
 
+    <!-- Pack panel -->
+    <div class="inner-panel" id="panel-pack">
+      <div id="packTripProgress" style="margin-bottom:14px;"></div>
+      <div id="packOverview"></div>
+    </div>
+
     <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--line);">
       <button class="btn btn-danger btn-block" id="deleteTripBtn" style="justify-content:center;">🗑️ Delete this trip</button>
     </div>
+  </div>
+</div>
+
+<!-- PERSON PACK LIST PAGE -->
+<div class="trip-detail-page" id="personPackPage" style="z-index:47;">
+  <div class="detail-header">
+    <button class="back-btn" id="backFromPersonPack">←</button>
+    <div class="detail-header-text">
+      <h2 id="personPackName"></h2>
+      <div class="detail-meta" id="personPackMeta"></div>
+    </div>
+  </div>
+  <div class="detail-body" style="padding-top:14px;">
+    <div id="personPackProgressBar" style="margin-bottom:18px;"></div>
+    <div id="personPackItems"></div>
   </div>
 </div>
 
@@ -1813,6 +1889,229 @@ $("saveEssential").addEventListener("click", async ()=>{
 // Enter key submits
 $("essentialItem").addEventListener("keydown", e=>{
   if(e.key==="Enter"){ e.preventDefault(); $("saveEssential").click(); }
+});
+
+/* ---------- Phase 5: Per-Person Packing Lists ---------- */
+
+let activePackMemberId = null;
+
+/* Build deduplicated outfit items for one member across all days */
+function buildOutfitItems(trip, memberId){
+  const days = generateDays(trip.startDate, trip.endDate);
+  const itemMap = {}; // normalizedName -> {name, days: Set}
+  days.forEach(date=>{
+    const dayData = (trip.days||{})[date]||{};
+    const memberOutfits = (dayData.outfits||{})[memberId]||{};
+    const d = new Date(date+"T00:00:00");
+    const dow = d.toLocaleDateString(undefined,{weekday:"short"});
+    Object.values(memberOutfits).forEach(items=>{
+      (items||[]).forEach(item=>{
+        const key = item.toLowerCase().trim();
+        if(!itemMap[key]) itemMap[key] = {name:item, days:new Set()};
+        itemMap[key].days.add(dow);
+      });
+    });
+  });
+  return Object.entries(itemMap).map(([key,val])=>({
+    key:`outfit:${key}`,
+    name:val.name,
+    note:[...val.days].join(", "),
+  }));
+}
+
+/* Build full packing list for a member */
+function buildPackingList(trip, memberId){
+  const outfitItems = buildOutfitItems(trip, memberId);
+  // Group essential items by category
+  const essentialItems = (trip.essentials||[])
+    .filter(e=>e.memberId===memberId)
+    .map(e=>({key:`ess:${e.id}`, name:e.item, category:e.category}));
+  return {outfitItems, essentialItems};
+}
+
+/* Calculate progress for one member */
+function calcProgress(trip, memberId){
+  const {outfitItems, essentialItems} = buildPackingList(trip, memberId);
+  const all = [...outfitItems, ...essentialItems];
+  const total = all.length;
+  if(total===0) return {packed:0,total:0,pct:0};
+  const packedMap = (trip.packed||{})[memberId]||{};
+  const packed = all.filter(i=>packedMap[i.key]).length;
+  return {packed, total, pct:Math.round(packed/total*100)};
+}
+
+/* Calculate trip-wide progress across all human + pet members */
+function calcTripProgress(trip){
+  const roster = trip.roster||[];
+  let totalAll=0, packedAll=0;
+  roster.forEach(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    if(!m) return;
+    const {packed,total} = calcProgress(trip, m.id);
+    totalAll+=total; packedAll+=packed;
+  });
+  return {packed:packedAll, total:totalAll, pct:totalAll>0?Math.round(packedAll/totalAll*100):0};
+}
+
+/* Render the Pack tab overview */
+function renderPackTab(){
+  const t = activeTrip;
+  if(!t) return;
+
+  // Trip-wide progress summary
+  const tp = calcTripProgress(t);
+  $("packTripProgress").innerHTML = tp.total===0 ? "" : `
+    <div class="pack-trip-summary">
+      <div class="trip-pct">${tp.pct}%</div>
+      <div class="trip-prog-wrap">
+        <div class="trip-prog-label">Trip total — ${tp.packed} of ${tp.total} items packed</div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill ${tp.pct===100?'complete':''}" style="width:${tp.pct}%"></div>
+        </div>
+      </div>
+    </div>`;
+
+  // Per-person cards
+  const roster = t.roster||[];
+  if(roster.length===0){
+    $("packOverview").innerHTML=`<p style="font-size:13px;color:var(--ink-soft);">No one on the roster yet.</p>`;
+    return;
+  }
+  $("packOverview").innerHTML = roster.map(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    const name = m ? m.name : r.guestName;
+    const emoji = m ? (m.emoji||"🧑🏽") : "👤";
+    const color = m ? m.color : "#B0A693";
+    if(!name) return "";
+    const {packed,total,pct} = m ? calcProgress(t,m.id) : {packed:0,total:0,pct:0};
+    const label = total===0 ? "No items planned yet" : `${packed} of ${total} packed`;
+    return `
+      <div class="pack-person-card" data-pack-m="${m?m.id:""}" data-pack-name="${escapeHtml(name)}">
+        <div class="avatar" style="background:${color}22;color:${color};width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${emoji}</div>
+        <div class="pack-info">
+          <div class="pack-name">${escapeHtml(name)}</div>
+          <div class="pack-prog-label">${label}</div>
+          ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
+        </div>
+        <div class="pack-chevron">›</div>
+      </div>`;
+  }).join("");
+
+  $("packOverview").querySelectorAll("[data-pack-m]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      if(card.dataset.packM) openPersonPackPage(card.dataset.packM);
+    });
+  });
+}
+
+/* Open full-screen packing list for one person */
+function openPersonPackPage(memberId){
+  const t = activeTrip;
+  const m = members.find(x=>x.id===memberId);
+  if(!m) return;
+  activePackMemberId = memberId;
+
+  $("personPackName").textContent = `${m.emoji||"🧑🏽"} ${m.name}`;
+  renderPersonPackPage();
+  $("personPackPage").classList.add("open");
+}
+
+function closePersonPackPage(){
+  $("personPackPage").classList.remove("open");
+  activePackMemberId = null;
+  renderPackTab(); // refresh overview progress
+}
+
+function renderPersonPackPage(){
+  const t = activeTrip;
+  const memberId = activePackMemberId;
+  const {outfitItems, essentialItems} = buildPackingList(t, memberId);
+  const packedMap = (t.packed||{})[memberId]||{};
+  const {packed,total,pct} = calcProgress(t, memberId);
+
+  // Progress bar
+  $("personPackProgressBar").innerHTML = `
+    <div class="person-pack-progress">
+      <div class="pct-big">${pct}%</div>
+      <div class="prog-wrap">
+        <div class="prog-label">${packed} of ${total} items packed</div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div>
+        </div>
+      </div>
+    </div>`;
+  $("personPackMeta").textContent = `${packed} of ${total} items packed`;
+
+  let html = "";
+
+  // Outfits section
+  if(outfitItems.length>0){
+    html += `<div class="pack-section-label">Outfits</div>`;
+    html += outfitItems.map(item=>{
+      const isPacked = !!packedMap[item.key];
+      return `<div class="pack-item-row ${isPacked?"is-packed":""}">
+        <input type="checkbox" ${isPacked?"checked":""} data-item-key="${escapeHtml(item.key)}">
+        <span class="pack-item-name">${escapeHtml(item.name)}</span>
+        ${item.note?`<span class="pack-item-note">${escapeHtml(item.note)}</span>`:""}
+      </div>`;
+    }).join("");
+  }
+
+  // Essentials grouped by category
+  const catGroups = {};
+  essentialItems.forEach(e=>{
+    if(!catGroups[e.category]) catGroups[e.category]=[];
+    catGroups[e.category].push(e);
+  });
+  Object.entries(catGroups).forEach(([cat,items])=>{
+    const c = CATEGORY_COLORS[cat]||CATEGORY_COLORS["Other"];
+    html += `<div class="pack-section-label" style="color:${c.text};">${cat}</div>`;
+    html += items.map(item=>{
+      const isPacked = !!packedMap[item.key];
+      return `<div class="pack-item-row ${isPacked?"is-packed":""}">
+        <input type="checkbox" ${isPacked?"checked":""} data-item-key="${escapeHtml(item.key)}">
+        <span class="pack-item-name">${escapeHtml(item.name)}</span>
+      </div>`;
+    }).join("");
+  });
+
+  if(!html) html = `<p style="font-size:13px;color:var(--ink-soft);padding-top:8px;">No items planned yet — add outfits and essentials first.</p>`;
+  $("personPackItems").innerHTML = html;
+
+  // Wire checkboxes
+  $("personPackItems").querySelectorAll("[data-item-key]").forEach(cb=>{
+    cb.addEventListener("change", ()=> togglePackedItem(memberId, cb.dataset.itemKey, cb.checked));
+  });
+}
+
+async function togglePackedItem(memberId, itemKey, checked){
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`packed.${memberId}.${itemKey}`]: checked
+    });
+    // Update local state
+    if(!activeTrip.packed) activeTrip.packed={};
+    if(!activeTrip.packed[memberId]) activeTrip.packed[memberId]={};
+    activeTrip.packed[memberId][itemKey] = checked;
+    // Update row style and progress without full re-render
+    const row = $("personPackItems").querySelector(`[data-item-key="${CSS.escape(itemKey)}"]`)?.closest(".pack-item-row");
+    if(row) row.classList.toggle("is-packed", checked);
+    const {packed,total,pct} = calcProgress(activeTrip, memberId);
+    $("personPackMeta").textContent = `${packed} of ${total} items packed`;
+    const fill = $("personPackProgressBar").querySelector(".progress-bar-fill");
+    if(fill){ fill.style.width=`${pct}%`; fill.classList.toggle("complete",pct===100); }
+    $("personPackProgressBar").querySelector(".prog-label").textContent = `${packed} of ${total} items packed`;
+    $("personPackProgressBar").querySelector(".pct-big").textContent = `${pct}%`;
+  }catch(err){ setStatus("Couldn't save: "+err.message,true); }
+}
+
+$("backFromPersonPack").addEventListener("click", closePersonPackPage);
+
+/* Hook pack tab into inner tab switching */
+document.querySelectorAll(".inner-tab").forEach(tab=>{
+  if(tab.dataset.inner==="pack"){
+    tab.addEventListener("click", renderPackTab);
+  }
 });
 
 initLocationAutocomplete();
