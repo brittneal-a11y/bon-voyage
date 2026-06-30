@@ -302,7 +302,42 @@
     font-size:13px;color:var(--ink-soft);
   }
 
-  /* ---- Activity chips ---- */
+  /* ---- Inner trip tabs ---- */
+  .inner-tabs{
+    display:flex;gap:0;margin:16px 0 0;
+    border-bottom:2px solid var(--line);
+  }
+  .inner-tab{
+    flex:1;padding:10px 0;border:none;background:transparent;
+    font-family:'Inter';font-weight:600;font-size:14px;color:var(--ink-soft);
+    border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;
+  }
+  .inner-tab.active{color:var(--teal-dark);border-bottom-color:var(--teal);}
+  .inner-panel{display:none;padding-top:14px;}
+  .inner-panel.active{display:block;}
+
+  /* ---- Essentials list ---- */
+  .essentials-person-block{margin-bottom:20px;}
+  .essentials-person-header{
+    display:flex;align-items:center;gap:8px;
+    font-weight:700;font-size:14px;margin-bottom:8px;
+  }
+  .essential-item-row{
+    display:flex;align-items:center;gap:8px;
+    background:var(--canvas-raised);border:1px solid var(--line);
+    border-radius:9px;padding:9px 12px;margin-bottom:6px;
+  }
+  .essential-item-row .ess-cat{
+    font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.07em;color:var(--ink-soft);
+    background:#EFE8D9;padding:2px 7px;border-radius:999px;white-space:nowrap;
+  }
+  .essential-item-row .ess-name{flex:1;font-size:14px;}
+  .essential-item-row .remove-ess-btn{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);
+    font-size:15px;padding:2px 4px;border-radius:4px;
+  }
+  .essential-item-row .remove-ess-btn:hover{color:var(--rose);}
   .activity-chip{
     display:inline-flex;align-items:center;gap:5px;
     font-size:12px;font-weight:600;padding:5px 10px;
@@ -524,16 +559,52 @@
     <div class="section-label" style="margin-top:16px;">Who's going</div>
     <div class="detail-roster-row" id="detailRoster"></div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-      <div class="section-label" style="margin:0;">Days &amp; Weather</div>
-      <div class="weather-fetch-row">
-        <span class="weather-fetch-note" id="weatherFetchNote"></span>
+    <!-- Inner tabs -->
+    <nav class="inner-tabs">
+      <button class="inner-tab active" data-inner="days">📅 Days & Weather</button>
+      <button class="inner-tab" data-inner="essentials">🎒 Essentials</button>
+    </nav>
+
+    <!-- Days & Weather panel -->
+    <div class="inner-panel active" id="panel-days">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="weather-fetch-note" id="weatherFetchNote" style="font-size:12px;color:var(--ink-soft);"></div>
         <button class="btn btn-ghost" id="fetchWeatherBtn" style="padding:7px 12px;font-size:13px;">⛅ Fetch weather</button>
       </div>
+      <div id="dayCards"></div>
     </div>
-    <div id="dayCards" style="margin-top:10px;"></div>
-    <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);">
+
+    <!-- Essentials panel -->
+    <div class="inner-panel" id="panel-essentials">
+      <div id="essentialsList"></div>
+      <button class="btn btn-ghost btn-block" id="addEssentialBtn" style="margin-top:4px;">+ Add essential</button>
+    </div>
+
+    <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--line);">
       <button class="btn btn-danger btn-block" id="deleteTripBtn" style="justify-content:center;">🗑️ Delete this trip</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ESSENTIAL MODAL -->
+<div class="overlay" id="addEssentialOverlay">
+  <div class="modal">
+    <h2>Add essential</h2>
+    <div class="field">
+      <label>For who?</label>
+      <select id="essentialMember"></select>
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <select id="essentialCategory"></select>
+    </div>
+    <div class="field">
+      <label>Item</label>
+      <input type="text" id="essentialItem" placeholder="e.g. Sunscreen">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelEssential">Cancel</button>
+      <button class="btn btn-primary" id="saveEssential">Add</button>
     </div>
   </div>
 </div>
@@ -1587,6 +1658,141 @@ $("doneAddActivity").addEventListener("click", async ()=>{
 /* close overlays on backdrop click */
 document.querySelectorAll(".overlay").forEach(o=>{
   o.addEventListener("click", (e)=>{ if(e.target===o) o.classList.remove("open"); });
+});
+
+/* ---------- Phase 4: Other Essentials ---------- */
+
+const HUMAN_CATEGORIES = ["Medications","Toiletries","Electronics","Clothing","Accessories","Documents","Other"];
+const PET_CATEGORIES   = ["Food","Leash & Collar","Bed","Toys","Medications","Grooming","Other"];
+
+function makeId(){ return Math.random().toString(36).slice(2,8); }
+
+/* ---- Inner tab switching on trip detail page ---- */
+document.querySelectorAll(".inner-tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll(".inner-tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll(".inner-panel").forEach(p=>p.classList.remove("active"));
+    tab.classList.add("active");
+    $("panel-"+tab.dataset.inner).classList.add("active");
+    if(tab.dataset.inner==="essentials") renderEssentials();
+  });
+});
+
+/* ---- Render essentials grouped by roster member ---- */
+function renderEssentials(){
+  const t = activeTrip;
+  if(!t){ $("essentialsList").innerHTML=""; return; }
+  const essentials = t.essentials||[];
+  const roster = t.roster||[];
+
+  if(essentials.length===0){
+    $("essentialsList").innerHTML = `<div class="empty" style="padding:24px 0;"><span class="glyph">🎒</span><p>No essentials yet.<br>Add medications, toiletries, gear, and more.</p></div>`;
+    return;
+  }
+
+  // Build display grouped by roster member
+  const html = roster.map(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    const name = m ? m.name : r.guestName;
+    const emoji = m ? (m.emoji||"🧑🏽") : "👤";
+    const color = m ? m.color : "#B0A693";
+    if(!name) return "";
+    const memberItems = essentials.filter(e=> m ? e.memberId===m.id : e.guestName===r.guestName);
+    if(memberItems.length===0) return "";
+    const itemsHtml = memberItems.map(e=>`
+      <div class="essential-item-row">
+        <span class="ess-cat">${escapeHtml(e.category)}</span>
+        <span class="ess-name">${escapeHtml(e.item)}</span>
+        <button class="remove-ess-btn" data-ess-id="${e.id}" title="Remove">×</button>
+      </div>`).join("");
+    return `
+      <div class="essentials-person-block">
+        <div class="essentials-person-header">
+          <div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${color}22;color:${color};">${emoji}</div>
+          ${escapeHtml(name)}
+        </div>
+        ${itemsHtml}
+      </div>`;
+  }).join("");
+
+  $("essentialsList").innerHTML = html || `<p style="font-size:13px;color:var(--ink-soft);">No items yet.</p>`;
+  $("essentialsList").querySelectorAll("[data-ess-id]").forEach(btn=>{
+    btn.addEventListener("click", ()=> removeEssential(btn.dataset.essId));
+  });
+}
+
+async function removeEssential(id){
+  const updated = (activeTrip.essentials||[]).filter(e=>e.id!==id);
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{ essentials: updated });
+    activeTrip.essentials = updated;
+    renderEssentials();
+  }catch(err){ setStatus("Couldn't remove: "+err.message,true); }
+}
+
+/* ---- Add Essential modal ---- */
+$("addEssentialBtn").addEventListener("click", openAddEssentialModal);
+$("cancelEssential").addEventListener("click", ()=> $("addEssentialOverlay").classList.remove("open"));
+
+function openAddEssentialModal(){
+  const t = activeTrip;
+  const roster = t.roster||[];
+
+  // Populate member selector
+  $("essentialMember").innerHTML = roster.map(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    const name = m ? m.name : r.guestName;
+    const val  = m ? `member:${m.id}` : `guest:${r.guestName}`;
+    if(!name) return "";
+    return `<option value="${val}" data-type="${m?m.type:'human'}">${m?(m.emoji+" "):""}${escapeHtml(name)}</option>`;
+  }).join("");
+
+  updateEssentialCategories();
+  $("essentialItem").value = "";
+  $("addEssentialOverlay").classList.add("open");
+  $("essentialItem").focus();
+}
+
+function updateEssentialCategories(){
+  const sel = $("essentialMember");
+  const chosen = sel.options[sel.selectedIndex];
+  const type = chosen ? chosen.dataset.type : "human";
+  const cats = type==="pet" ? PET_CATEGORIES : HUMAN_CATEGORIES;
+  $("essentialCategory").innerHTML = cats.map(c=>`<option>${c}</option>`).join("");
+}
+
+$("essentialMember").addEventListener("change", updateEssentialCategories);
+
+$("saveEssential").addEventListener("click", async ()=>{
+  const sel = $("essentialMember");
+  const chosen = sel.options[sel.selectedIndex];
+  if(!chosen){ setStatus("Pick someone first.",true); return; }
+  const item = $("essentialItem").value.trim();
+  if(!item){ setStatus("Enter an item name.",true); return; }
+  const category = $("essentialCategory").value;
+  const val = chosen.value; // "member:ID" or "guest:name"
+
+  const entry = { id: makeId(), category, item };
+  if(val.startsWith("member:")){
+    entry.memberId = val.slice(7);
+  } else {
+    entry.guestName = val.slice(6);
+  }
+
+  const updated = [...(activeTrip.essentials||[]), entry];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{ essentials: updated });
+    activeTrip.essentials = updated;
+    $("essentialItem").value = "";
+    renderEssentials();
+    // Keep modal open for quick multi-add — user can cancel when done
+    $("essentialItem").focus();
+  }catch(err){ setStatus("Couldn't save: "+err.message,true); }
+});
+
+// Enter key submits
+$("essentialItem").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); $("saveEssential").click(); }
 });
 
 initLocationAutocomplete();
