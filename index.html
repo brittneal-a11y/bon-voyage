@@ -2143,7 +2143,6 @@ let newTripLoc, templateLoc;
 // Deferred until DOM ready (called at end of script)
 
 /* ---------- Phase 6: Trip Search ---------- */
-let tripSearchQuery = "";
 $("tripSearch").addEventListener("input", e=>{
   tripSearchQuery = e.target.value.trim().toLowerCase();
   renderTrips();
