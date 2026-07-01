@@ -1804,40 +1804,36 @@ function renderEssentials(){
   if(!t){ $("essentialsList").innerHTML=""; return; }
   const essentials = t.essentials||[];
   const roster = t.roster||[];
-
-  if(essentials.length===0){
-    $("essentialsList").innerHTML = `<div class="empty" style="padding:24px 0;"><span class="glyph">🎒</span><p>No essentials yet.<br>Add medications, toiletries, gear, and more.</p></div>`;
+  const sharedItems = essentials.filter(e=>e.memberId===SHARED_ID);
+  const hasAny = sharedItems.length>0 || roster.some(r=>{
+    const m=members.find(x=>x.id===r.memberId);
+    return m && essentials.some(e=>e.memberId===m.id);
+  });
+  if(!hasAny){
+    $("essentialsList").innerHTML=`<div class="empty" style="padding:24px 0;"><span class="glyph">🎒</span><p>No essentials yet.<br>Add medications, toiletries, gear, and more.</p></div>`;
     return;
   }
-
-  // Build display grouped by roster member
-  const html = roster.map(r=>{
-    const m = members.find(x=>x.id===r.memberId);
-    const name = m ? m.name : r.guestName;
-    const emoji = m ? (m.emoji||"🧑🏽") : "👤";
-    const color = m ? m.color : "#B0A693";
+  let html="";
+  if(sharedItems.length>0){
+    html+=`<div class="essentials-person-block">
+      <div class="essentials-person-header"><div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#E8F1F0;color:var(--teal-dark);">🌍</div>Trip (shared)</div>
+      ${sharedItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
+    </div>`;
+  }
+  html+=roster.map(r=>{
+    const m=members.find(x=>x.id===r.memberId);
+    const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
     if(!name) return "";
-    const memberItems = essentials.filter(e=> m ? e.memberId===m.id : e.guestName===r.guestName);
-    if(memberItems.length===0) return "";
-    const itemsHtml = memberItems.map(e=>`
-      <div class="essential-item-row">
-        <span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span>
-        <span class="ess-name">${escapeHtml(e.item)}</span>
-        <button class="remove-ess-btn" data-ess-id="${e.id}" title="Remove">×</button>
-      </div>`).join("");
-    return `
-      <div class="essentials-person-block">
-        <div class="essentials-person-header">
-          <div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${color}22;color:${color};">${emoji}</div>
-          ${escapeHtml(name)}
-        </div>
-        ${itemsHtml}
-      </div>`;
+    const memberItems=essentials.filter(e=>m?e.memberId===m.id:e.guestName===r.guestName);
+    if(!memberItems.length) return "";
+    return `<div class="essentials-person-block">
+      <div class="essentials-person-header"><div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${color}22;color:${color};">${emoji}</div>${escapeHtml(name)}</div>
+      ${memberItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
+    </div>`;
   }).join("");
-
-  $("essentialsList").innerHTML = html || `<p style="font-size:13px;color:var(--ink-soft);">No items yet.</p>`;
+  $("essentialsList").innerHTML=html;
   $("essentialsList").querySelectorAll("[data-ess-id]").forEach(btn=>{
-    btn.addEventListener("click", ()=> removeEssential(btn.dataset.essId));
+    btn.addEventListener("click",()=>removeEssential(btn.dataset.essId));
   });
 }
 
@@ -1857,55 +1853,63 @@ $("cancelEssential").addEventListener("click", ()=> $("addEssentialOverlay").cla
 function openAddEssentialModal(){
   const t = activeTrip;
   const roster = t.roster||[];
-
-  // Populate member selector
-  $("essentialMember").innerHTML = roster.map(r=>{
-    const m = members.find(x=>x.id===r.memberId);
-    const name = m ? m.name : r.guestName;
-    const val  = m ? `member:${m.id}` : `guest:${r.guestName}`;
-    if(!name) return "";
-    return `<option value="${val}" data-type="${m?m.type:'human'}">${m?(m.emoji+" "):""}${escapeHtml(name)}</option>`;
-  }).join("");
-
+  $("essentialMember").innerHTML =
+    `<option value="shared" data-type="shared">🌍 Trip (shared / group items)</option>` +
+    roster.map(r=>{
+      const m=members.find(x=>x.id===r.memberId);
+      const name=m?m.name:r.guestName;
+      const val=m?`member:${m.id}`:`guest:${r.guestName}`;
+      if(!name) return "";
+      return `<option value="${val}" data-type="${m?m.type:'human'}">${m?(m.emoji+" "):""}${escapeHtml(name)}</option>`;
+    }).join("");
+  // Default to first person (not shared) if roster exists
+  if(roster.length>0) $("essentialMember").selectedIndex=1;
   updateEssentialCategories();
-  $("essentialItem").value = "";
+  $("essentialItem").value="";
   $("addEssentialOverlay").classList.add("open");
   $("essentialItem").focus();
 }
 
 function updateEssentialCategories(){
-  const sel = $("essentialMember");
-  const chosen = sel.options[sel.selectedIndex];
-  const type = chosen ? chosen.dataset.type : "human";
-  const cats = type==="pet" ? PET_CATEGORIES : HUMAN_CATEGORIES;
-  $("essentialCategory").innerHTML = cats.map(c=>`<option>${c}</option>`).join("");
+  const sel=$("essentialMember");
+  const chosen=sel.options[sel.selectedIndex];
+  const type=chosen?chosen.dataset.type:"human";
+  const cats=type==="pet"?PET_CATEGORIES:type==="shared"?SHARED_CATEGORIES:HUMAN_CATEGORIES;
+  $("essentialCategory").innerHTML=cats.map(c=>`<option>${c}</option>`).join("");
 }
 
 $("essentialMember").addEventListener("change", updateEssentialCategories);
 
 $("saveEssential").addEventListener("click", async ()=>{
-  const sel = $("essentialMember");
-  const chosen = sel.options[sel.selectedIndex];
+  const sel=$("essentialMember");
+  const chosen=sel.options[sel.selectedIndex];
   if(!chosen){ setStatus("Pick someone first.",true); return; }
-  const item = $("essentialItem").value.trim();
-  if(!item){ setStatus("Enter an item name.",true); return; }
-  const category = $("essentialCategory").value;
-  const val = chosen.value; // "member:ID" or "guest:name"
+  const itemName=$("essentialItem").value.trim();
+  if(!itemName){ setStatus("Enter an item name.",true); return; }
+  const category=$("essentialCategory").value;
+  const val=chosen.value;
 
-  const entry = { id: makeId(), category, item };
-  if(val.startsWith("member:")){
-    entry.memberId = val.slice(7);
-  } else {
-    entry.guestName = val.slice(6);
-  }
+  // Duplicate detection
+  const existing=activeTrip.essentials||[];
+  const dupe=existing.find(e=>{
+    const sameTarget=val==="shared"?e.memberId===SHARED_ID
+      :val.startsWith("member:")?e.memberId===val.slice(7)
+      :e.guestName===val.slice(6);
+    return sameTarget && e.item.toLowerCase().trim()===itemName.toLowerCase().trim();
+  });
+  if(dupe && !confirm(`"${dupe.item}" is already listed in ${dupe.category}. Add anyway?`)) return;
 
-  const updated = [...(activeTrip.essentials||[]), entry];
+  const entry={id:makeId(),category,item:itemName};
+  if(val==="shared") entry.memberId=SHARED_ID;
+  else if(val.startsWith("member:")) entry.memberId=val.slice(7);
+  else entry.guestName=val.slice(6);
+
+  const updated=[...existing,entry];
   try{
-    await updateDoc(doc(db,"trips",activeTripDetailId),{ essentials: updated });
-    activeTrip.essentials = updated;
-    $("essentialItem").value = "";
+    await updateDoc(doc(db,"trips",activeTripDetailId),{essentials:updated});
+    activeTrip.essentials=updated;
+    $("essentialItem").value="";
     renderEssentials();
-    // Keep modal open for quick multi-add — user can cancel when done
     $("essentialItem").focus();
   }catch(err){ setStatus("Couldn't save: "+err.message,true); }
 });
@@ -1966,76 +1970,80 @@ function calcProgress(trip, memberId){
 
 /* Calculate trip-wide progress across all human + pet members */
 function calcTripProgress(trip){
-  const roster = trip.roster||[];
+  const roster=trip.roster||[];
   let totalAll=0, packedAll=0;
   roster.forEach(r=>{
-    const m = members.find(x=>x.id===r.memberId);
+    const m=members.find(x=>x.id===r.memberId);
     if(!m) return;
-    const {packed,total} = calcProgress(trip, m.id);
+    const {packed,total}=calcProgress(trip,m.id);
     totalAll+=total; packedAll+=packed;
   });
-  return {packed:packedAll, total:totalAll, pct:totalAll>0?Math.round(packedAll/totalAll*100):0};
+  // Include shared items
+  const {essentialItems:sharedEss}=buildPackingList(trip,SHARED_ID);
+  const sharedPackedMap=(trip.packed||{})[SHARED_ID]||{};
+  totalAll+=sharedEss.length;
+  packedAll+=sharedEss.filter(i=>sharedPackedMap[i.key]).length;
+  return {packed:packedAll,total:totalAll,pct:totalAll>0?Math.round(packedAll/totalAll*100):0};
 }
 
-/* Render the Pack tab overview */
 function renderPackTab(){
-  const t = activeTrip;
+  const t=activeTrip;
   if(!t) return;
-
-  // Trip-wide progress summary
-  const tp = calcTripProgress(t);
-  $("packTripProgress").innerHTML = tp.total===0 ? "" : `
-    <div class="pack-trip-summary">
+  const tp=calcTripProgress(t);
+  $("packTripProgress").innerHTML=tp.total===0?"":
+    `<div class="pack-trip-summary">
       <div class="trip-pct">${tp.pct}%</div>
       <div class="trip-prog-wrap">
         <div class="trip-prog-label">Trip total — ${tp.packed} of ${tp.total} items packed</div>
-        <div class="progress-bar-track">
-          <div class="progress-bar-fill ${tp.pct===100?'complete':''}" style="width:${tp.pct}%"></div>
-        </div>
+        <div class="progress-bar-track"><div class="progress-bar-fill ${tp.pct===100?'complete':''}" style="width:${tp.pct}%"></div></div>
       </div>
     </div>`;
-
-  // Per-person cards
-  const roster = t.roster||[];
-  if(roster.length===0){
+  const roster=t.roster||[];
+  const personCards=roster.map(r=>{
+    const m=members.find(x=>x.id===r.memberId);
+    const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
+    if(!name) return "";
+    const {packed,total,pct}=m?calcProgress(t,m.id):{packed:0,total:0,pct:0};
+    const label=total===0?"No items planned yet":`${packed} of ${total} packed`;
+    return `<div class="pack-person-card" data-pack-m="${m?m.id:""}">
+      <div class="avatar" style="background:${color}22;color:${color};width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${emoji}</div>
+      <div class="pack-info"><div class="pack-name">${escapeHtml(name)}</div><div class="pack-prog-label">${label}</div>
+        ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
+      </div><div class="pack-chevron">›</div>
+    </div>`;
+  }).join("");
+  // Shared card
+  const sharedItems=(t.essentials||[]).filter(e=>e.memberId===SHARED_ID);
+  let sharedCard="";
+  if(sharedItems.length>0){
+    const {packed,total,pct}=calcProgress(t,SHARED_ID);
+    const label=`${packed} of ${total} packed`;
+    sharedCard=`<div class="pack-person-card" data-pack-m="${SHARED_ID}">
+      <div class="avatar" style="background:#E8F1F0;color:var(--teal-dark);width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🌍</div>
+      <div class="pack-info"><div class="pack-name">Trip (shared)</div><div class="pack-prog-label">${label}</div>
+        ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
+      </div><div class="pack-chevron">›</div>
+    </div>`;
+  }
+  if(!personCards && !sharedCard){
     $("packOverview").innerHTML=`<p style="font-size:13px;color:var(--ink-soft);">No one on the roster yet.</p>`;
     return;
   }
-  $("packOverview").innerHTML = roster.map(r=>{
-    const m = members.find(x=>x.id===r.memberId);
-    const name = m ? m.name : r.guestName;
-    const emoji = m ? (m.emoji||"🧑🏽") : "👤";
-    const color = m ? m.color : "#B0A693";
-    if(!name) return "";
-    const {packed,total,pct} = m ? calcProgress(t,m.id) : {packed:0,total:0,pct:0};
-    const label = total===0 ? "No items planned yet" : `${packed} of ${total} packed`;
-    return `
-      <div class="pack-person-card" data-pack-m="${m?m.id:""}" data-pack-name="${escapeHtml(name)}">
-        <div class="avatar" style="background:${color}22;color:${color};width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${emoji}</div>
-        <div class="pack-info">
-          <div class="pack-name">${escapeHtml(name)}</div>
-          <div class="pack-prog-label">${label}</div>
-          ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
-        </div>
-        <div class="pack-chevron">›</div>
-      </div>`;
-  }).join("");
-
+  $("packOverview").innerHTML=personCards+sharedCard;
   $("packOverview").querySelectorAll("[data-pack-m]").forEach(card=>{
-    card.addEventListener("click", ()=>{
-      if(card.dataset.packM) openPersonPackPage(card.dataset.packM);
-    });
+    card.addEventListener("click",()=>{ if(card.dataset.packM) openPersonPackPage(card.dataset.packM); });
   });
 }
 
-/* Open full-screen packing list for one person */
 function openPersonPackPage(memberId){
-  const t = activeTrip;
-  const m = members.find(x=>x.id===memberId);
-  if(!m) return;
-  activePackMemberId = memberId;
-
-  $("personPackName").textContent = `${m.emoji||"🧑🏽"} ${m.name}`;
+  activePackMemberId=memberId;
+  if(memberId===SHARED_ID){
+    $("personPackName").textContent="🌍 Trip (shared)";
+  } else {
+    const m=members.find(x=>x.id===memberId);
+    if(!m) return;
+    $("personPackName").textContent=`${m.emoji||"🧑🏽"} ${m.name}`;
+  }
   renderPersonPackPage();
   $("personPackPage").classList.add("open");
 }
@@ -2235,170 +2243,6 @@ CATEGORY_COLORS["Towels"]         = {bg:"#E8F4FD",text:"#1A5C8A"};
 CATEGORY_COLORS["Beach & Pool"]   = {bg:"#E8F1F0",text:"#22534F"};
 CATEGORY_COLORS["Sports & Gear"]  = {bg:"#F0F4E8",text:"#3D5C1A"};
 CATEGORY_COLORS["Entertainment"]  = {bg:"#FDEEF5",text:"#8A1A5C"};
-
-/* Hook shared option into essential member selector */
-const _origOpenEssModal = openAddEssentialModal;
-function openAddEssentialModalWithShared(){
-  _origOpenEssModal();
-  // Prepend shared option
-  const sharedOpt = document.createElement("option");
-  sharedOpt.value = "shared"; sharedOpt.dataset.type = "shared";
-  sharedOpt.textContent = "🌍 Trip (shared / group items)";
-  $("essentialMember").insertBefore(sharedOpt, $("essentialMember").firstChild);
-  $("essentialMember").value = "shared"; // default to shared? No, keep person default
-  $("essentialMember").value = $("essentialMember").options[1]?.value || "shared";
-  updateEssentialCategories();
-}
-$("addEssentialBtn").removeEventListener("click", openAddEssentialModal);
-$("addEssentialBtn").addEventListener("click", openAddEssentialModalWithShared);
-
-// Patch updateEssentialCategories for shared type
-const _origUpdateCats = updateEssentialCategories;
-function updateEssentialCategories(){
-  const sel = $("essentialMember");
-  const chosen = sel.options[sel.selectedIndex];
-  const type = chosen ? chosen.dataset.type : "human";
-  const cats = type==="pet" ? PET_CATEGORIES : type==="shared" ? SHARED_CATEGORIES : HUMAN_CATEGORIES;
-  $("essentialCategory").innerHTML = cats.map(c=>`<option>${c}</option>`).join("");
-}
-
-// Patch saveEssential to handle shared + duplicate detection
-const _origSave = $("saveEssential").onclick;
-$("saveEssential").addEventListener("click", async ()=>{}, {capture:true}); // placeholder
-
-// Completely replace saveEssential handler
-$("saveEssential").replaceWith($("saveEssential").cloneNode(true)); // remove old listeners
-$("saveEssential").addEventListener("click", async ()=>{
-  const sel = $("essentialMember");
-  const chosen = sel.options[sel.selectedIndex];
-  if(!chosen){ setStatus("Pick someone first.",true); return; }
-  const itemName = $("essentialItem").value.trim();
-  if(!itemName){ setStatus("Enter an item name.",true); return; }
-  const category = $("essentialCategory").value;
-  const val = chosen.value;
-
-  // Duplicate detection
-  const existing = activeTrip.essentials||[];
-  const targetMemberId = val==="shared" ? SHARED_ID : val.startsWith("member:") ? val.slice(7) : null;
-  const dupe = existing.find(e=>{
-    const sameTarget = val==="shared" ? e.memberId===SHARED_ID
-      : val.startsWith("member:") ? e.memberId===val.slice(7)
-      : e.guestName===val.slice(6);
-    return sameTarget && e.item.toLowerCase().trim()===itemName.toLowerCase().trim();
-  });
-  if(dupe && !confirm(`"${dupe.item}" is already in ${dupe.category} for this person/group. Add anyway?`)) return;
-
-  const entry = { id:makeId(), category, item:itemName };
-  if(val==="shared") entry.memberId = SHARED_ID;
-  else if(val.startsWith("member:")) entry.memberId = val.slice(7);
-  else entry.guestName = val.slice(6);
-
-  const updated = [...existing, entry];
-  try{
-    await updateDoc(doc(db,"trips",activeTripDetailId),{ essentials:updated });
-    activeTrip.essentials = updated;
-    $("essentialItem").value = "";
-    renderEssentials();
-    $("essentialItem").focus();
-  }catch(err){ setStatus("Couldn't save: "+err.message,true); }
-});
-$("essentialItem").addEventListener("keydown", e=>{
-  if(e.key==="Enter"){ e.preventDefault(); $("saveEssential").click(); }
-});
-
-/* Patch renderEssentials to include shared block */
-const _origRenderEss = renderEssentials;
-function renderEssentials(){
-  const t = activeTrip;
-  if(!t){ $("essentialsList").innerHTML=""; return; }
-  const essentials = t.essentials||[];
-  const roster = t.roster||[];
-
-  const sharedItems = essentials.filter(e=>e.memberId===SHARED_ID);
-  const hasAny = sharedItems.length > 0 || roster.some(r=>{
-    const m=members.find(x=>x.id===r.memberId);
-    return m && essentials.some(e=>e.memberId===m.id);
-  });
-  if(!hasAny){
-    $("essentialsList").innerHTML=`<div class="empty" style="padding:24px 0;"><span class="glyph">🎒</span><p>No essentials yet.<br>Add medications, toiletries, gear, and more.</p></div>`;
-    return;
-  }
-  let html = "";
-  // Shared block first
-  if(sharedItems.length>0){
-    html += `<div class="essentials-person-block">
-      <div class="essentials-person-header"><div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#E8F1F0;color:var(--teal-dark);">🌍</div>Trip (shared)</div>
-      ${sharedItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
-    </div>`;
-  }
-  // Per-person blocks
-  html += roster.map(r=>{
-    const m=members.find(x=>x.id===r.memberId);
-    const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
-    if(!name) return "";
-    const memberItems=essentials.filter(e=>m?e.memberId===m.id:e.guestName===r.guestName);
-    if(!memberItems.length) return "";
-    return `<div class="essentials-person-block">
-      <div class="essentials-person-header"><div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${color}22;color:${color};">${emoji}</div>${escapeHtml(name)}</div>
-      ${memberItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
-    </div>`;
-  }).join("");
-  $("essentialsList").innerHTML = html;
-  $("essentialsList").querySelectorAll("[data-ess-id]").forEach(btn=>{
-    btn.addEventListener("click",()=>removeEssential(btn.dataset.essId));
-  });
-}
-
-/* Patch calcTripProgress to include shared items */
-const _origCalcTrip = calcTripProgress;
-function calcTripProgress(trip){
-  const {packed:p1,total:t1} = _origCalcTrip(trip);
-  // Add shared items
-  const {outfitItems,essentialItems} = buildPackingList(trip, SHARED_ID);
-  const sharedTotal = essentialItems.length;
-  const packedMap = (trip.packed||{})[SHARED_ID]||{};
-  const sharedPacked = essentialItems.filter(i=>packedMap[i.key]).length;
-  const total=t1+sharedTotal, packed=p1+sharedPacked;
-  return {packed, total, pct:total>0?Math.round(packed/total*100):0};
-}
-
-/* Patch renderPackTab to include shared card */
-const _origRenderPack = renderPackTab;
-function renderPackTab(){
-  _origRenderPack();
-  const t = activeTrip;
-  const sharedItems = (t.essentials||[]).filter(e=>e.memberId===SHARED_ID);
-  if(!sharedItems.length) return;
-  const {packed,total,pct} = calcProgress(t, SHARED_ID);
-  const label = total===0?"No shared items":  `${packed} of ${total} packed`;
-  $("packOverview").innerHTML += `
-    <div class="pack-person-card" data-pack-m="${SHARED_ID}">
-      <div class="avatar" style="background:#E8F1F0;color:var(--teal-dark);width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🌍</div>
-      <div class="pack-info">
-        <div class="pack-name">Trip (shared)</div>
-        <div class="pack-prog-label">${label}</div>
-        ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
-      </div>
-      <div class="pack-chevron">›</div>
-    </div>`;
-  $("packOverview").querySelectorAll("[data-pack-m]").forEach(card=>{
-    card.onclick = ()=>{ if(card.dataset.packM) openPersonPackPage(card.dataset.packM); };
-  });
-}
-
-
-/* Patch openPersonPackPage to handle SHARED_ID */
-const _origOpenPerson = openPersonPackPage;
-function openPersonPackPage(memberId){
-  if(memberId===SHARED_ID){
-    activePackMemberId = SHARED_ID;
-    $("personPackName").textContent = "🌍 Trip (shared)";
-    renderPersonPackPage();
-    $("personPackPage").classList.add("open");
-  } else {
-    _origOpenPerson(memberId);
-  }
-}
 
 /* ---- Wire up all autocomplete instances ---- */
 newTripLoc = makeLocAutocomplete("tripLocation","locationSuggestions","locationConfirmed");
