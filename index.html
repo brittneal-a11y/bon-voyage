@@ -513,8 +513,6 @@
 
   <!-- TRIPS VIEW -->
   <section class="view active" id="view-trips">
-    <input type="text" id="tripSearch" placeholder="🔍 Search trips by name or location…"
-      style="width:100%;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--canvas-raised);font-family:'Inter';font-size:14px;color:var(--ink);margin-bottom:14px;display:block;">
     <div id="tripsList"></div>
   </section>
 
@@ -643,44 +641,8 @@
       <div id="packOverview"></div>
     </div>
 
-    <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px;">
-      <button class="btn btn-ghost btn-block" id="useAsTemplateBtn" style="justify-content:center;">📋 Use as template for new trip</button>
+    <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--line);">
       <button class="btn btn-danger btn-block" id="deleteTripBtn" style="justify-content:center;">🗑️ Delete this trip</button>
-    </div>
-  </div>
-</div>
-
-<!-- TEMPLATE MODAL -->
-<div class="overlay" id="templateOverlay">
-  <div class="modal">
-    <h2>New trip from template</h2>
-    <div class="field">
-      <label>Trip name</label>
-      <input type="text" id="templateName" placeholder="e.g. Meadow Vista 2027">
-    </div>
-    <div class="field" style="position:relative;">
-      <label>Location</label>
-      <input type="text" id="templateLocation" placeholder="Start typing a city…" autocomplete="off">
-      <div id="templateLocSuggestions" class="loc-suggestions"></div>
-      <div id="templateLocConfirmed" class="loc-confirmed"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>Start date</label><input type="date" id="templateStart"></div>
-      <div class="field"><label>End date</label><input type="date" id="templateEnd"></div>
-    </div>
-    <div class="field">
-      <label>Trip color</label>
-      <div class="color-row" id="templateColorRow"></div>
-    </div>
-    <div class="section-label">What to carry over</div>
-    <div style="display:flex;flex-direction:column;gap:2px;">
-      <label class="roster-item"><input type="checkbox" id="copyRoster" checked><span class="rname">Who's going (roster)</span></label>
-      <label class="roster-item"><input type="checkbox" id="copyEssentials" checked><span class="rname">Essentials (medications, toiletries, gear…)</span></label>
-      <label class="roster-item"><input type="checkbox" id="copyDays"><span class="rname">Day planning (activities &amp; outfits)</span></label>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" id="cancelTemplate">Cancel</button>
-      <button class="btn btn-primary" id="saveTemplate">Create trip</button>
     </div>
   </div>
 </div>
@@ -830,65 +792,11 @@ let selectedColor = COLORS[0];
 let rosterSelections = {}; // memberId/guestId -> bool
 let oneOffGuests = []; // {id, name}
 let activeTripDetailId = null;
-let selectedLocation = null; // kept for legacy reference — real state in newTripLoc instance
+let selectedLocation = null;
 let locDebounce = null;
 let selectedTripColor = COLORS[0];
-let tripSearchQuery = "";
 
-/* ---------- Location autocomplete factory (reusable) ---------- */
-function makeLocAutocomplete(inputId, boxId, confirmedId){
-  let selected = null;
-  let debTimer = null;
-
-  function inp(){ return $(inputId); }
-  function box(){ return $(boxId); }
-  function cfm(){ return $(confirmedId); }
-
-  function updateConfirmed(){
-    const b = cfm(); const val = inp().value.trim();
-    if(!val){ b.className="loc-confirmed"; b.textContent=""; return; }
-    if(selected){ b.className="loc-confirmed show matched"; b.textContent="✓ Matched — weather lookups will use this exact place"; }
-    else { b.className="loc-confirmed show unmatched"; b.textContent="⚠ Pick a suggestion from the list so weather data lines up later"; }
-  }
-  function closeBox(){ box().classList.remove("open"); box().innerHTML=""; }
-  function renderResults(results){
-    if(!results.length){ closeBox(); return; }
-    box().innerHTML = results.map((r,i)=>{
-      const sub=[r.admin1,r.country].filter(Boolean).join(", ");
-      return `<div class="loc-suggestion" data-i="${i}"><div class="lname">${escapeHtml(r.name)}</div><div class="lsub">${escapeHtml(sub)}</div></div>`;
-    }).join("");
-    box().classList.add("open");
-    box().querySelectorAll(".loc-suggestion").forEach(el=>{
-      el.addEventListener("click",()=>{
-        const r=results[parseInt(el.dataset.i)];
-        const sub=[r.admin1,r.country].filter(Boolean).join(", ");
-        const display=sub?`${r.name}, ${sub}`:r.name;
-        inp().value=display;
-        selected={name:display,lat:r.latitude,lon:r.longitude};
-        updateConfirmed(); closeBox();
-      });
-    });
-  }
-  async function fetchResults(q){
-    try{
-      const res=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`);
-      const data=await res.json(); renderResults(data.results||[]);
-    }catch(e){ closeBox(); }
-  }
-  inp().addEventListener("input",()=>{
-    selected=null; updateConfirmed();
-    const val=inp().value.trim(); clearTimeout(debTimer);
-    if(val.length<2){ closeBox(); return; }
-    debTimer=setTimeout(()=>fetchResults(val),300);
-  });
-  document.addEventListener("click",e=>{ if(!e.target.closest(`#${boxId}`)&&e.target!==inp()) closeBox(); });
-
-  return {
-    getSelected:()=>selected,
-    reset(){ selected=null; inp().value=""; closeBox(); cfm().className="loc-confirmed"; cfm().textContent=""; },
-    setLocation(name,lat,lon){ inp().value=name||""; selected=(lat&&lon)?{name,lat,lon}:null; updateConfirmed(); },
-  };
-}
+/* ---------- Location autocomplete ---------- */
 
 const $ = (id) => document.getElementById(id);
 const setStatus = (msg, isError=false) => {
@@ -896,6 +804,47 @@ const setStatus = (msg, isError=false) => {
   el.textContent = msg || "";
   el.className = "status-banner" + (isError ? " error" : "");
 };
+
+function initLocationAutocomplete(){
+  const inp = ()=>$("tripLocation");
+  const box = ()=>$("locationSuggestions");
+  const cfm = ()=>$("locationConfirmed");
+  function updateConfirmed(){
+    const val=inp().value.trim();
+    if(!val){cfm().className="loc-confirmed";cfm().textContent="";return;}
+    if(selectedLocation){cfm().className="loc-confirmed show matched";cfm().textContent="✓ Matched — weather lookups will use this exact place";}
+    else{cfm().className="loc-confirmed show unmatched";cfm().textContent="⚠ Pick a suggestion from the list so weather data lines up later";}
+  }
+  function closeBox(){box().classList.remove("open");box().innerHTML="";}
+  inp().addEventListener("input",()=>{
+    selectedLocation=null; updateConfirmed();
+    const val=inp().value.trim(); clearTimeout(locDebounce);
+    if(val.length<2){closeBox();return;}
+    locDebounce=setTimeout(async()=>{
+      try{
+        const res=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(val)}&count=6&language=en&format=json`);
+        const data=await res.json();
+        const results=data.results||[];
+        if(!results.length){closeBox();return;}
+        box().innerHTML=results.map((r,i)=>{
+          const sub=[r.admin1,r.country].filter(Boolean).join(", ");
+          return `<div class="loc-suggestion" data-i="${i}"><div class="lname">${escapeHtml(r.name)}</div><div class="lsub">${escapeHtml(sub)}</div></div>`;
+        }).join("");
+        box().classList.add("open");
+        box().querySelectorAll(".loc-suggestion").forEach(el=>{
+          el.addEventListener("click",()=>{
+            const r=results[parseInt(el.dataset.i)];
+            const sub=[r.admin1,r.country].filter(Boolean).join(", ");
+            const display=sub?`${r.name}, ${sub}`:r.name;
+            inp().value=display; selectedLocation={name:display,lat:r.latitude,lon:r.longitude};
+            updateConfirmed(); closeBox();
+          });
+        });
+      }catch(e){closeBox();}
+    },300);
+  });
+  document.addEventListener("click",e=>{if(!e.target.closest("#locationSuggestions")&&e.target!==inp())closeBox();});
+}
 
 /* ---------- Tabs ---------- */
 document.querySelectorAll(".tab-btn").forEach(btn=>{
@@ -946,15 +895,12 @@ function renderMembers(){
 /* ---------- Render: Trips ---------- */
 function renderTrips(){
   const list = $("tripsList");
-  const display = tripSearchQuery
-    ? trips.filter(t=>(t.name||"").toLowerCase().includes(tripSearchQuery)||(t.location||"").toLowerCase().includes(tripSearchQuery))
-    : trips;
-  if(display.length===0){
+  if(trips.length===0){
     list.innerHTML = `<div class="empty"><span class="glyph">🏷️</span><p>No trips yet. Tap the + button to plan your first one.</p></div>`;
     return;
   }
   const today = new Date().toISOString().split("T")[0];
-  const sorted = [...display].sort((a,b)=>{
+  const sorted = [...trips].sort((a,b)=>{
     const aD = a.startDate||"", bD = b.startDate||"";
     if(!aD && !bD) return 0;
     if(!aD) return 1;
@@ -1093,7 +1039,11 @@ $("cancelTrip").addEventListener("click", ()=> $("tripOverlay").classList.remove
 
 function openTripModal(){
   $("tripName").value = "";
-  newTripLoc.reset();
+  $("tripLocation").value = "";
+  selectedLocation = null;
+  $("locationSuggestions").className = "loc-suggestions";
+  $("locationConfirmed").className = "loc-confirmed";
+  $("locationConfirmed").textContent = "";
   selectedTripColor = COLORS[0];
   $("tripColorRow").querySelectorAll(".color-opt").forEach((b,i)=>b.classList.toggle("selected",i===0));
   $("tripStart").value = "";
@@ -1153,10 +1103,9 @@ $("addGuestBtn").addEventListener("click", ()=>{
 
 $("saveTrip").addEventListener("click", async ()=>{
   const name = $("tripName").value.trim();
-  const loc = newTripLoc.getSelected();
-  const location = loc ? loc.name : $("tripLocation").value.trim();
-  const locationLat = loc ? loc.lat : null;
-  const locationLon = loc ? loc.lon : null;
+  const location = selectedLocation ? selectedLocation.name : $("tripLocation").value.trim();
+  const locationLat = selectedLocation ? selectedLocation.lat : null;
+  const locationLon = selectedLocation ? selectedLocation.lon : null;
   const startDate = $("tripStart").value;
   const endDate = $("tripEnd").value;
   if(!name){ setStatus("Give the trip a name first.", true); return; }
@@ -1804,23 +1753,11 @@ function renderEssentials(){
   if(!t){ $("essentialsList").innerHTML=""; return; }
   const essentials = t.essentials||[];
   const roster = t.roster||[];
-  const sharedItems = essentials.filter(e=>e.memberId===SHARED_ID);
-  const hasAny = sharedItems.length>0 || roster.some(r=>{
-    const m=members.find(x=>x.id===r.memberId);
-    return m && essentials.some(e=>e.memberId===m.id);
-  });
-  if(!hasAny){
+  if(essentials.length===0){
     $("essentialsList").innerHTML=`<div class="empty" style="padding:24px 0;"><span class="glyph">🎒</span><p>No essentials yet.<br>Add medications, toiletries, gear, and more.</p></div>`;
     return;
   }
-  let html="";
-  if(sharedItems.length>0){
-    html+=`<div class="essentials-person-block">
-      <div class="essentials-person-header"><div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#E8F1F0;color:var(--teal-dark);">🌍</div>Trip (shared)</div>
-      ${sharedItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
-    </div>`;
-  }
-  html+=roster.map(r=>{
+  const html=roster.map(r=>{
     const m=members.find(x=>x.id===r.memberId);
     const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
     if(!name) return "";
@@ -1831,7 +1768,7 @@ function renderEssentials(){
       ${memberItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
     </div>`;
   }).join("");
-  $("essentialsList").innerHTML=html;
+  $("essentialsList").innerHTML=html||`<p style="font-size:13px;color:var(--ink-soft);">No items yet.</p>`;
   $("essentialsList").querySelectorAll("[data-ess-id]").forEach(btn=>{
     btn.addEventListener("click",()=>removeEssential(btn.dataset.essId));
   });
@@ -1853,17 +1790,13 @@ $("cancelEssential").addEventListener("click", ()=> $("addEssentialOverlay").cla
 function openAddEssentialModal(){
   const t = activeTrip;
   const roster = t.roster||[];
-  $("essentialMember").innerHTML =
-    `<option value="shared" data-type="shared">🌍 Trip (shared / group items)</option>` +
-    roster.map(r=>{
-      const m=members.find(x=>x.id===r.memberId);
-      const name=m?m.name:r.guestName;
-      const val=m?`member:${m.id}`:`guest:${r.guestName}`;
-      if(!name) return "";
-      return `<option value="${val}" data-type="${m?m.type:'human'}">${m?(m.emoji+" "):""}${escapeHtml(name)}</option>`;
-    }).join("");
-  // Default to first person (not shared) if roster exists
-  if(roster.length>0) $("essentialMember").selectedIndex=1;
+  $("essentialMember").innerHTML = roster.map(r=>{
+    const m=members.find(x=>x.id===r.memberId);
+    const name=m?m.name:r.guestName;
+    const val=m?`member:${m.id}`:`guest:${r.guestName}`;
+    if(!name) return "";
+    return `<option value="${val}" data-type="${m?m.type:'human'}">${m?(m.emoji+" "):""}${escapeHtml(name)}</option>`;
+  }).join("");
   updateEssentialCategories();
   $("essentialItem").value="";
   $("addEssentialOverlay").classList.add("open");
@@ -1874,7 +1807,7 @@ function updateEssentialCategories(){
   const sel=$("essentialMember");
   const chosen=sel.options[sel.selectedIndex];
   const type=chosen?chosen.dataset.type:"human";
-  const cats=type==="pet"?PET_CATEGORIES:type==="shared"?SHARED_CATEGORIES:HUMAN_CATEGORIES;
+  const cats=type==="pet"?PET_CATEGORIES:HUMAN_CATEGORIES;
   $("essentialCategory").innerHTML=cats.map(c=>`<option>${c}</option>`).join("");
 }
 
@@ -1884,27 +1817,14 @@ $("saveEssential").addEventListener("click", async ()=>{
   const sel=$("essentialMember");
   const chosen=sel.options[sel.selectedIndex];
   if(!chosen){ setStatus("Pick someone first.",true); return; }
-  const itemName=$("essentialItem").value.trim();
-  if(!itemName){ setStatus("Enter an item name.",true); return; }
+  const item=$("essentialItem").value.trim();
+  if(!item){ setStatus("Enter an item name.",true); return; }
   const category=$("essentialCategory").value;
   const val=chosen.value;
-
-  // Duplicate detection
-  const existing=activeTrip.essentials||[];
-  const dupe=existing.find(e=>{
-    const sameTarget=val==="shared"?e.memberId===SHARED_ID
-      :val.startsWith("member:")?e.memberId===val.slice(7)
-      :e.guestName===val.slice(6);
-    return sameTarget && e.item.toLowerCase().trim()===itemName.toLowerCase().trim();
-  });
-  if(dupe && !confirm(`"${dupe.item}" is already listed in ${dupe.category}. Add anyway?`)) return;
-
-  const entry={id:makeId(),category,item:itemName};
-  if(val==="shared") entry.memberId=SHARED_ID;
-  else if(val.startsWith("member:")) entry.memberId=val.slice(7);
+  const entry={id:makeId(),category,item};
+  if(val.startsWith("member:")) entry.memberId=val.slice(7);
   else entry.guestName=val.slice(6);
-
-  const updated=[...existing,entry];
+  const updated=[...(activeTrip.essentials||[]),entry];
   try{
     await updateDoc(doc(db,"trips",activeTripDetailId),{essentials:updated});
     activeTrip.essentials=updated;
@@ -1978,11 +1898,6 @@ function calcTripProgress(trip){
     const {packed,total}=calcProgress(trip,m.id);
     totalAll+=total; packedAll+=packed;
   });
-  // Include shared items
-  const {essentialItems:sharedEss}=buildPackingList(trip,SHARED_ID);
-  const sharedPackedMap=(trip.packed||{})[SHARED_ID]||{};
-  totalAll+=sharedEss.length;
-  packedAll+=sharedEss.filter(i=>sharedPackedMap[i.key]).length;
   return {packed:packedAll,total:totalAll,pct:totalAll>0?Math.round(packedAll/totalAll*100):0};
 }
 
@@ -1999,7 +1914,11 @@ function renderPackTab(){
       </div>
     </div>`;
   const roster=t.roster||[];
-  const personCards=roster.map(r=>{
+  if(!roster.length){
+    $("packOverview").innerHTML=`<p style="font-size:13px;color:var(--ink-soft);">No one on the roster yet.</p>`;
+    return;
+  }
+  $("packOverview").innerHTML=roster.map(r=>{
     const m=members.find(x=>x.id===r.memberId);
     const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
     if(!name) return "";
@@ -2012,38 +1931,16 @@ function renderPackTab(){
       </div><div class="pack-chevron">›</div>
     </div>`;
   }).join("");
-  // Shared card
-  const sharedItems=(t.essentials||[]).filter(e=>e.memberId===SHARED_ID);
-  let sharedCard="";
-  if(sharedItems.length>0){
-    const {packed,total,pct}=calcProgress(t,SHARED_ID);
-    const label=`${packed} of ${total} packed`;
-    sharedCard=`<div class="pack-person-card" data-pack-m="${SHARED_ID}">
-      <div class="avatar" style="background:#E8F1F0;color:var(--teal-dark);width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🌍</div>
-      <div class="pack-info"><div class="pack-name">Trip (shared)</div><div class="pack-prog-label">${label}</div>
-        ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
-      </div><div class="pack-chevron">›</div>
-    </div>`;
-  }
-  if(!personCards && !sharedCard){
-    $("packOverview").innerHTML=`<p style="font-size:13px;color:var(--ink-soft);">No one on the roster yet.</p>`;
-    return;
-  }
-  $("packOverview").innerHTML=personCards+sharedCard;
   $("packOverview").querySelectorAll("[data-pack-m]").forEach(card=>{
     card.addEventListener("click",()=>{ if(card.dataset.packM) openPersonPackPage(card.dataset.packM); });
   });
 }
 
 function openPersonPackPage(memberId){
+  const m=members.find(x=>x.id===memberId);
+  if(!m) return;
   activePackMemberId=memberId;
-  if(memberId===SHARED_ID){
-    $("personPackName").textContent="🌍 Trip (shared)";
-  } else {
-    const m=members.find(x=>x.id===memberId);
-    if(!m) return;
-    $("personPackName").textContent=`${m.emoji||"🧑🏽"} ${m.name}`;
-  }
+  $("personPackName").textContent=`${m.emoji||"🧑🏽"} ${m.name}`;
   renderPersonPackPage();
   $("personPackPage").classList.add("open");
 }
@@ -2146,107 +2043,9 @@ document.querySelectorAll(".inner-tab").forEach(tab=>{
   }
 });
 
-/* ---- Init location autocomplete instances ---- */
-let newTripLoc, templateLoc;
-// Deferred until DOM ready (called at end of script)
+/* ---- Wire up location autocomplete ---- */
+initLocationAutocomplete();
 
-/* ---------- Phase 6: Trip Search ---------- */
-$("tripSearch").addEventListener("input", e=>{
-  tripSearchQuery = e.target.value.trim().toLowerCase();
-  renderTrips();
-});
-
-/* ---------- Phase 6: Trip Templating ---------- */
-let templateSourceTrip = null;
-let selectedTemplateColor = COLORS[0];
-
-$("useAsTemplateBtn").addEventListener("click", openTemplateModal);
-$("cancelTemplate").addEventListener("click", ()=> $("templateOverlay").classList.remove("open"));
-
-function openTemplateModal(){
-  const t = activeTrip;
-  if(!t) return;
-  templateSourceTrip = t;
-  $("templateName").value = t.name + " (copy)";
-  templateLoc.setLocation(t.location||"", t.locationLat, t.locationLon);
-  $("templateStart").value = "";
-  $("templateEnd").value = "";
-  selectedTemplateColor = t.color||COLORS[0];
-  // Build template color picker
-  $("templateColorRow").innerHTML = COLORS.map(c=>`<button type="button" class="color-opt" data-tc="${c}" style="background:${c};"></button>`).join("");
-  $("templateColorRow").querySelectorAll("[data-tc]").forEach(b=>{
-    b.classList.toggle("selected", b.dataset.tc===selectedTemplateColor);
-    b.addEventListener("click",()=>{
-      selectedTemplateColor=b.dataset.tc;
-      $("templateColorRow").querySelectorAll(".color-opt").forEach(x=>x.classList.remove("selected"));
-      b.classList.add("selected");
-    });
-  });
-  $("copyRoster").checked = true;
-  $("copyEssentials").checked = true;
-  $("copyDays").checked = false;
-  $("templateOverlay").classList.add("open");
-}
-
-$("saveTemplate").addEventListener("click", async ()=>{
-  const name = $("templateName").value.trim();
-  if(!name){ setStatus("Give the trip a name.",true); return; }
-  const loc = templateLoc.getSelected();
-  const location = loc ? loc.name : $("templateLocation").value.trim();
-  const locationLat = loc ? loc.lat : (templateSourceTrip.locationLat||null);
-  const locationLon = loc ? loc.lon : (templateSourceTrip.locationLon||null);
-  const startDate = $("templateStart").value;
-  const endDate = $("templateEnd").value;
-  const src = templateSourceTrip;
-
-  const newTrip = { name, location, locationLat, locationLon, startDate, endDate,
-    color: selectedTemplateColor, createdAt: serverTimestamp() };
-
-  if($("copyRoster").checked) newTrip.roster = src.roster||[];
-  if($("copyEssentials").checked){
-    // Reset packed state for essentials
-    newTrip.essentials = (src.essentials||[]).map(e=>({...e, id:makeId()}));
-  }
-  if($("copyDays").checked){
-    // Copy days data, remap to new date range positionally
-    const srcDays = generateDays(src.startDate, src.endDate);
-    const newDays = generateDays(startDate, endDate);
-    const newDaysData = {};
-    newDays.forEach((date,i)=>{
-      const srcDate = srcDays[i];
-      if(srcDate && src.days && src.days[srcDate]){
-        const srcDay = src.days[srcDate];
-        newDaysData[date] = {
-          activities: srcDay.activities||[],
-          outfits: srcDay.outfits||{},
-        };
-      }
-    });
-    if(Object.keys(newDaysData).length) newTrip.days = newDaysData;
-  }
-
-  try{
-    await addDoc(tripsCol, newTrip);
-    $("templateOverlay").classList.remove("open");
-    closeTripDetail();
-    setStatus("");
-  }catch(err){ setStatus("Couldn't create trip: "+err.message,true); }
-});
-
-/* ---------- Phase 6/7: Shared items + Duplicate detection ---------- */
-const SHARED_ID = "__shared__";
-const SHARED_CATEGORIES = ["Snacks & Food","Towels","Beach & Pool","Sports & Gear","Entertainment","Documents","Other"];
-
-// Add shared to category system
-CATEGORY_COLORS["Snacks & Food"]  = {bg:"#FEF3E2",text:"#8A5A00"};
-CATEGORY_COLORS["Towels"]         = {bg:"#E8F4FD",text:"#1A5C8A"};
-CATEGORY_COLORS["Beach & Pool"]   = {bg:"#E8F1F0",text:"#22534F"};
-CATEGORY_COLORS["Sports & Gear"]  = {bg:"#F0F4E8",text:"#3D5C1A"};
-CATEGORY_COLORS["Entertainment"]  = {bg:"#FDEEF5",text:"#8A1A5C"};
-
-/* ---- Wire up all autocomplete instances ---- */
-newTripLoc = makeLocAutocomplete("tripLocation","locationSuggestions","locationConfirmed");
-templateLoc = makeLocAutocomplete("templateLocation","templateLocSuggestions","templateLocConfirmed");
 </script>
 </body>
 </html>
