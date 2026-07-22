@@ -333,6 +333,76 @@
     background:#EFE8D9;padding:2px 7px;border-radius:999px;white-space:nowrap;
   }
   .essential-item-row .ess-name{flex:1;font-size:14px;}
+  .ess-qty{font-size:11px;font-weight:700;color:var(--ink-soft);}
+
+  /* ---- Departure-day house checklist ---- */
+  .checklist-row{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 4px;border-bottom:1px solid var(--line);
+  }
+  .checklist-row:last-child{border-bottom:none;}
+  .checklist-row input[type=checkbox]{width:19px;height:19px;accent-color:var(--teal);flex-shrink:0;}
+  .checklist-row .cl-label{flex:1;font-size:14px;transition:opacity .15s;}
+  .checklist-row.cl-done .cl-label{text-decoration:line-through;opacity:.45;}
+  .checklist-row .cl-remove{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);
+    font-size:15px;padding:2px 6px;border-radius:4px;
+  }
+  .checklist-row .cl-remove:hover{color:var(--rose);}
+
+  /* ---- Digital wardrobe ---- */
+  .wardrobe-person-pills{display:flex;gap:8px;flex-wrap:wrap;}
+  .wardrobe-person-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:13px;font-weight:600;padding:7px 13px;border-radius:999px;
+    background:var(--canvas-raised);border:1px solid var(--line);color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .wardrobe-person-pill.active{border-color:var(--teal);background:#E8F1F0;color:var(--teal-dark);}
+  .wardrobe-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;
+  }
+  .wardrobe-card{
+    background:var(--canvas-raised);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;cursor:pointer;transition:transform .12s, box-shadow .12s;
+  }
+  .wardrobe-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+  .wardrobe-card .wc-photo{
+    width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);display:block;
+  }
+  .wardrobe-card .wc-photo-placeholder{
+    width:100%;aspect-ratio:1/1;background:var(--line);display:flex;
+    align-items:center;justify-content:center;font-size:26px;color:var(--ink-soft);
+  }
+  .wardrobe-card .wc-name{font-size:12px;font-weight:600;padding:6px 8px 2px;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .wardrobe-card .wc-cat{font-size:10px;color:var(--ink-soft);padding:0 8px 8px;text-transform:uppercase;letter-spacing:.05em;}
+  .wardrobe-card.selected{outline:2px solid var(--teal);}
+  .wardrobe-photo-picker{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    width:100%;aspect-ratio:1/1;max-width:200px;margin:0 auto;
+    background:var(--canvas-raised);border:2px dashed var(--line);border-radius:14px;
+    cursor:pointer;overflow:hidden;color:var(--ink-soft);font-size:13px;text-align:center;padding:12px;
+  }
+  .wardrobe-photo-picker img{width:100%;height:100%;object-fit:cover;}
+
+  /* ---- Outfit collage (wardrobe-photo items inside an outfit slot) ---- */
+  .outfit-collage{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+  .collage-chip{
+    position:relative;width:64px;flex-shrink:0;text-align:center;
+  }
+  .collage-chip img{
+    width:64px;height:64px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;
+  }
+  .collage-chip .cc-name{font-size:10px;color:var(--ink-soft);margin-top:3px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;}
+  .collage-chip .cc-remove{
+    position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;
+    background:var(--canvas);border:1px solid var(--line);color:var(--ink-soft);
+    font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;
+  }
+  .collage-chip .cc-remove:hover{color:var(--rose);border-color:var(--rose);}
+  .wardrobe-pack-thumb{width:28px;height:28px;object-fit:cover;border-radius:6px;flex-shrink:0;}
   .essential-item-row .remove-ess-btn{
     background:none;border:none;cursor:pointer;color:var(--ink-soft);
     font-size:15px;padding:2px 4px;border-radius:4px;
@@ -520,6 +590,7 @@
   <nav class="tabs">
     <button class="tab-btn active" data-view="trips">Trips</button>
     <button class="tab-btn" data-view="family">Family</button>
+    <button class="tab-btn" data-view="wardrobe">Wardrobe</button>
   </nav>
 
   <div id="statusBanner" class="status-banner"></div>
@@ -537,6 +608,14 @@
     <div class="section-label">Household</div>
     <div id="membersList"></div>
     <button class="btn btn-ghost btn-block" id="openAddMember" style="margin-top:8px;">+ Add family member or pet</button>
+  </section>
+
+  <!-- WARDROBE VIEW -->
+  <section class="view" id="view-wardrobe">
+    <div class="section-label">Whose closet?</div>
+    <div class="wardrobe-person-pills" id="wardrobePersonPills"></div>
+    <div id="wardrobeGrid" style="margin-top:14px;"></div>
+    <button class="btn btn-ghost btn-block" id="openAddWardrobeItem" style="margin-top:14px;">+ Add clothing item</button>
   </section>
 </div>
 
@@ -641,6 +720,7 @@
       <button class="inner-tab active" data-inner="days">📅 Days</button>
       <button class="inner-tab" data-inner="essentials">🎒 Essentials</button>
       <button class="inner-tab" data-inner="pack">✅ Pack</button>
+      <button class="inner-tab" data-inner="departure">🏠 Departure</button>
     </nav>
 
     <!-- Days & Weather panel -->
@@ -660,8 +740,26 @@
 
     <!-- Pack panel -->
     <div class="inner-panel" id="panel-pack">
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        <button class="btn btn-ghost" id="shareTripPackBtn" style="flex:1;padding:9px 10px;font-size:13px;">📤 Share list</button>
+        <button class="btn btn-ghost" id="printTripPackBtn" style="flex:1;padding:9px 10px;font-size:13px;">🖨️ Print list</button>
+      </div>
       <div id="packTripProgress" style="margin-bottom:14px;"></div>
       <div id="packOverview"></div>
+    </div>
+
+    <!-- Departure-day house checklist panel -->
+    <div class="inner-panel" id="panel-departure">
+      <p style="font-size:13px;color:var(--ink-soft);margin:0 0 12px;">The same reusable list every trip, plus anything specific to this one.</p>
+      <div id="departureReusableList"></div>
+      <button class="btn btn-ghost btn-block" id="manageChecklistBtn" style="margin:4px 0 20px;">⚙️ Manage reusable list</button>
+
+      <div class="section-label">This trip's extras</div>
+      <div id="departureExtrasList"></div>
+      <div class="add-guest">
+        <input type="text" id="departureExtraInput" placeholder="e.g. Drop Nox at the sitter's">
+        <button class="btn btn-ghost" id="addDepartureExtraBtn">Add</button>
+      </div>
     </div>
 
     <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--line);">
@@ -679,6 +777,7 @@
       <h2 id="personPackName"></h2>
       <div class="detail-meta" id="personPackMeta"></div>
     </div>
+    <button class="weather-edit-btn" id="sharePersonPackBtn" title="Share this list">📤</button>
   </div>
   <div class="detail-body" style="padding-top:14px;">
     <div id="personPackProgressBar" style="margin-bottom:18px;"></div>
@@ -698,13 +797,79 @@
       <label>Category</label>
       <select id="essentialCategory"></select>
     </div>
-    <div class="field">
-      <label>Item</label>
-      <input type="text" id="essentialItem" placeholder="e.g. Sunscreen">
+    <div class="row2">
+      <div class="field" style="flex:2;">
+        <label>Item</label>
+        <input type="text" id="essentialItem" placeholder="e.g. Sunscreen">
+      </div>
+      <div class="field" style="flex:1;">
+        <label>Qty</label>
+        <input type="number" id="essentialQty" value="1" min="1" step="1">
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="cancelEssential">Cancel</button>
       <button class="btn btn-primary" id="saveEssential">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- MANAGE HOUSE CHECKLIST MODAL (global reusable template) -->
+<div class="overlay" id="manageChecklistOverlay">
+  <div class="modal">
+    <h2>Reusable departure checklist</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">Applies to every trip — lock up, thermostat, mail hold, and anything else you always do.</p>
+    <div id="checklistTemplateList" style="margin-top:8px;"></div>
+    <div class="add-guest">
+      <input type="text" id="checklistTemplateInput" placeholder="e.g. Set thermostat to eco">
+      <button class="btn btn-ghost" id="addChecklistTemplateBtn">Add</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="closeManageChecklist" style="flex:1;">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT WARDROBE ITEM MODAL -->
+<div class="overlay" id="wardrobeItemOverlay">
+  <div class="modal">
+    <h2 id="wardrobeItemModalTitle">Add clothing item</h2>
+    <div class="field">
+      <label>Whose item?</label>
+      <select id="wardrobeItemMember"></select>
+    </div>
+    <div class="field">
+      <label>Photo</label>
+      <div class="wardrobe-photo-picker" id="wardrobePhotoPreviewWrap">
+        <img id="wardrobePhotoPreview" style="display:none;" alt="">
+        <span id="wardrobePhotoPlaceholder">Tap to choose a photo</span>
+      </div>
+      <input type="file" id="wardrobePhotoInput" accept="image/*" style="display:none;">
+    </div>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="wardrobeItemName" placeholder="e.g. Black Sandals">
+    </div>
+    <div class="field">
+      <label>Category</label>
+      <select id="wardrobeItemCategory"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="deleteWardrobeItemBtn" style="display:none;">Delete</button>
+      <button class="btn btn-ghost" id="cancelWardrobeItem">Cancel</button>
+      <button class="btn btn-primary" id="saveWardrobeItemBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- WARDROBE PICKER MODAL (choosing items into an outfit slot) -->
+<div class="overlay" id="wardrobePickerOverlay">
+  <div class="modal">
+    <h2 id="wardrobePickerTitle">Choose from wardrobe</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">Tap items to add them to this outfit. Tap Done when finished.</p>
+    <div id="wardrobePickerGrid" class="wardrobe-grid" style="margin-top:10px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="doneWardrobePicker" style="flex:1;">Done</button>
     </div>
   </div>
 </div>
@@ -789,6 +954,9 @@ import {
   getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
   onSnapshot, query, orderBy, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAUTB2TcCv_aeKGSDgxDHmZb6vYgJtYIKY",
@@ -801,8 +969,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app); // requires Firebase Storage enabled on the Blaze plan
 const membersCol = collection(db, "members");
 const tripsCol = collection(db, "trips");
+const houseChecklistCol = collection(db, "houseChecklistItems"); // global reusable departure checklist template
+const wardrobeCol = collection(db, "wardrobeItems"); // global digital wardrobe, scoped per member
+const WARDROBE_CATEGORIES = ["Tops","Bottoms","Dresses","Shoes","Outerwear","Accessories","Other"];
 
 const EMOJIS = ["🧑🏽","👩🏽","👨🏽","🧑🏾","👩🏾","👨🏾","🧒🏽","👧🏽","👦🏽","👶🏽","🧓🏽","🧔🏽","🐶","🐱","🐾"];
 const COLORS = ["#2E6F6B","#D98E3B","#B85C5C","#7C9070","#5C7CB8","#9B6CB8","#C77B3E"];
@@ -823,6 +995,12 @@ let selectedTripColor = COLORS[0];
 let tripSearchQuery = "";
 let editingTripId = null;      // set when tripOverlay is editing an existing trip
 let templateSourceTrip = null; // set when tripOverlay was opened "start from this trip"
+let houseChecklistItems = [];  // global reusable departure checklist template
+let wardrobeItems = [];        // global digital wardrobe items, each scoped to a memberId
+let activeWardrobePersonId = null;   // which person's closet is showing on the Wardrobe tab
+let editingWardrobeItemId = null;    // set when the wardrobe item modal is editing rather than adding
+let wardrobePendingPhotoBlob = null; // resized image blob staged for upload on save
+let wardrobePickerContext = null;    // {memberId, slotKey} while the outfit-slot wardrobe picker is open
 
 /* ---------- Location autocomplete ---------- */
 
@@ -881,6 +1059,8 @@ document.querySelectorAll(".tab-btn").forEach(btn=>{
     document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
     btn.classList.add("active");
     $("view-"+btn.dataset.view).classList.add("active");
+    $("fabNewTrip").style.display = btn.dataset.view==="trips" ? "" : "none";
+    if(btn.dataset.view==="wardrobe") renderWardrobeTab();
   });
 });
 
@@ -901,6 +1081,16 @@ onSnapshot(query(tripsCol, orderBy("createdAt","desc")), (snap)=>{
   trips = snap.docs.map(d=>({id:d.id, ...d.data()}));
   renderTrips();
 }, (err)=> setStatus("Couldn't load trips: "+err.message, true));
+
+onSnapshot(query(houseChecklistCol, orderBy("createdAt","asc")), (snap)=>{
+  houseChecklistItems = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  if($("panel-departure").classList.contains("active")) renderDeparturePanel();
+}, (err)=> setStatus("Couldn't load checklist: "+err.message, true));
+
+onSnapshot(query(wardrobeCol, orderBy("createdAt","desc")), (snap)=>{
+  wardrobeItems = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  if($("view-wardrobe").classList.contains("active")) renderWardrobeTab();
+}, (err)=> setStatus("Couldn't load wardrobe: "+err.message, true));
 
 /* ---------- Render: Family ---------- */
 function renderMembers(){
@@ -1687,19 +1877,33 @@ function renderDayOutfitsArea(){
 
     const slotsHtml = slots.map(slot=>{
       const items = memberOutfits[slot.key]||[];
-      const itemsHtml = items.map((item,idx)=>`
+      // Items can be legacy plain strings, or wardrobe-photo objects {type:"wardrobe", itemId, name, photoURL, category}
+      const photoItems = items.map((item,idx)=>({item,idx})).filter(x=>x.item && typeof x.item==="object" && x.item.type==="wardrobe");
+      const textItems  = items.map((item,idx)=>({item,idx})).filter(x=>!(x.item && typeof x.item==="object" && x.item.type==="wardrobe"));
+
+      const collageHtml = photoItems.length ? `<div class="outfit-collage">${photoItems.map(({item,idx})=>`
+        <div class="collage-chip">
+          ${item.photoURL ? `<img src="${item.photoURL}" alt="${escapeHtml(item.name)}">` : `<div class="wc-photo-placeholder" style="border-radius:10px;">👕</div>`}
+          <div class="cc-name">${escapeHtml(item.name)}</div>
+          <button class="cc-remove" data-m="${m.id}" data-slot="${slot.key}" data-idx="${idx}" title="Remove">×</button>
+        </div>`).join("")}</div>` : "";
+
+      const itemsHtml = textItems.map(({item,idx})=>`
         <div class="outfit-item-row">
           <span class="item-bullet">·</span>
           <span class="item-name">${escapeHtml(item)}</span>
           <button class="remove-item-btn" data-m="${m.id}" data-slot="${slot.key}" data-idx="${idx}" title="Remove">×</button>
         </div>`).join("");
+
       return `
         <div class="outfit-slot">
           <div class="outfit-slot-label"><span class="slot-icon">${slot.icon}</span>${slot.label}</div>
+          ${collageHtml}
           <div class="outfit-items-list">${itemsHtml}</div>
           <div class="outfit-add-row">
             <input type="text" placeholder="Add item…" data-add-m="${m.id}" data-add-slot="${slot.key}">
             <button class="add-item-btn" data-btn-m="${m.id}" data-btn-slot="${slot.key}">Add</button>
+            <button class="add-item-btn" style="background:var(--amber);" data-wardrobe-m="${m.id}" data-wardrobe-slot="${slot.key}" title="Choose from wardrobe">👕</button>
           </div>
         </div>`;
     }).join("");
@@ -1714,7 +1918,7 @@ function renderDayOutfitsArea(){
       </div>`;
   }).join("");
 
-  // Wire up remove buttons
+  // Wire up remove buttons (works for both legacy text rows and collage chips — index-based)
   $("dayOutfitsArea").querySelectorAll("[data-m][data-slot][data-idx]").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       removeOutfitItem(btn.dataset.m, btn.dataset.slot, parseInt(btn.dataset.idx));
@@ -1732,6 +1936,10 @@ function renderDayOutfitsArea(){
       const input = $("dayOutfitsArea").querySelector(`[data-add-m="${btn.dataset.btnM}"][data-add-slot="${btn.dataset.btnSlot}"]`);
       if(input) addOutfitItem(btn.dataset.btnM, btn.dataset.btnSlot, input);
     });
+  });
+  // Wire up "choose from wardrobe" buttons
+  $("dayOutfitsArea").querySelectorAll("[data-wardrobe-m]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openWardrobePicker(btn.dataset.wardrobeM, btn.dataset.wardrobeSlot));
   });
 }
 
@@ -1755,6 +1963,34 @@ async function addOutfitItem(memberId, slotKey, inputEl){
     inputEl.value = "";
     renderDayOutfitsArea();
   }catch(err){ setStatus("Couldn't save item: "+err.message,true); }
+}
+
+/* Adds a wardrobe-photo item (object form) to the current outfit slot, from the wardrobe picker modal */
+async function addWardrobeItemToOutfitSlot(wardrobeItem){
+  if(!wardrobePickerContext) return;
+  const {memberId, slotKey} = wardrobePickerContext;
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const existing = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
+  const entry = {
+    type: "wardrobe",
+    itemId: wardrobeItem.id,
+    name: wardrobeItem.name,
+    photoURL: wardrobeItem.photoURL || null,
+    category: wardrobeItem.category || "Other",
+  };
+  const updated = [...existing, entry];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`days.${activeDayDate}.outfits.${memberId}.${slotKey}`]: updated
+    });
+    if(!activeTrip.days) activeTrip.days={};
+    if(!activeTrip.days[activeDayDate]) activeTrip.days[activeDayDate]={};
+    if(!activeTrip.days[activeDayDate].outfits) activeTrip.days[activeDayDate].outfits={};
+    if(!activeTrip.days[activeDayDate].outfits[memberId]) activeTrip.days[activeDayDate].outfits[memberId]={};
+    activeTrip.days[activeDayDate].outfits[memberId][slotKey] = updated;
+    renderDayOutfitsArea();
+  }catch(err){ setStatus("Couldn't add item: "+err.message,true); }
 }
 
 async function removeOutfitItem(memberId, slotKey, index){
@@ -1900,6 +2136,12 @@ function catStyle(cat){
 
 function makeId(){ return Math.random().toString(36).slice(2,8); }
 
+/* Renders an essential's name with a ×N qty badge when qty > 1 (defaults to 1 for legacy items) */
+function essItemLabel(e){
+  const qty = e.qty || 1;
+  return qty > 1 ? `${escapeHtml(e.item)} <span class="ess-qty">×${qty}</span>` : escapeHtml(e.item);
+}
+
 /* ---- Inner tab switching on trip detail page ---- */
 document.querySelectorAll(".inner-tab").forEach(tab=>{
   tab.addEventListener("click", ()=>{
@@ -1908,6 +2150,7 @@ document.querySelectorAll(".inner-tab").forEach(tab=>{
     tab.classList.add("active");
     $("panel-"+tab.dataset.inner).classList.add("active");
     if(tab.dataset.inner==="essentials") renderEssentials();
+    if(tab.dataset.inner==="departure") renderDeparturePanel();
   });
 });
 
@@ -1926,7 +2169,7 @@ function renderEssentials(){
   if(sharedItems.length){
     html += `<div class="essentials-person-block">
       <div class="essentials-person-header"><span class="shared-badge">🎉 Shared (Trip-wide)</span></div>
-      ${sharedItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
+      ${sharedItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${essItemLabel(e)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
     </div>`;
   }
   html += roster.map(r=>{
@@ -1937,7 +2180,7 @@ function renderEssentials(){
     if(!memberItems.length) return "";
     return `<div class="essentials-person-block">
       <div class="essentials-person-header"><div class="avatar" style="width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${color}22;color:${color};">${emoji}</div>${escapeHtml(name)}</div>
-      ${memberItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
+      ${memberItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${essItemLabel(e)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
     </div>`;
   }).join("");
   $("essentialsList").innerHTML=html||`<p style="font-size:13px;color:var(--ink-soft);">No items yet.</p>`;
@@ -1973,6 +2216,7 @@ function openAddEssentialModal(){
   $("essentialMember").innerHTML = sharedOption + rosterOptions;
   updateEssentialCategories();
   $("essentialItem").value="";
+  $("essentialQty").value="1";
   $("addEssentialOverlay").classList.add("open");
   $("essentialItem").focus();
 }
@@ -1994,8 +2238,9 @@ $("saveEssential").addEventListener("click", async ()=>{
   const item=$("essentialItem").value.trim();
   if(!item){ setStatus("Enter an item name.",true); return; }
   const category=$("essentialCategory").value;
+  const qty = Math.max(1, parseInt($("essentialQty").value) || 1);
   const val=chosen.value;
-  const entry={id:makeId(),category,item};
+  const entry={id:makeId(),category,item,qty};
   if(val==="shared") entry.memberId=SHARED_ID;
   else if(val.startsWith("member:")) entry.memberId=val.slice(7);
   else entry.guestName=val.slice(6);
@@ -2013,6 +2258,7 @@ $("saveEssential").addEventListener("click", async ()=>{
     await updateDoc(doc(db,"trips",activeTripDetailId),{essentials:updated});
     activeTrip.essentials=updated;
     $("essentialItem").value="";
+    $("essentialQty").value="1";
     renderEssentials();
     $("essentialItem").focus();
   }catch(err){ setStatus("Couldn't save: "+err.message,true); }
@@ -2023,6 +2269,370 @@ $("essentialItem").addEventListener("keydown", e=>{
   if(e.key==="Enter"){ e.preventDefault(); $("saveEssential").click(); }
 });
 
+/* ---------- Departure-day house checklist ---------- */
+/* Data model: trip.departureChecklist = { checked: {itemId: bool}, extras: [{id,label}] }
+   itemId is either a houseChecklistItems doc id (reusable, template-wide) or an extra's own id
+   (trip-specific). Both share the same `checked` map since ids never collide. */
+
+function renderDeparturePanel(){
+  const t = activeTrip;
+  if(!t){ return; }
+  const dc = t.departureChecklist || {checked:{}, extras:[]};
+  const checked = dc.checked || {};
+  const extras = dc.extras || [];
+
+  // Reusable template items
+  const reusableBox = $("departureReusableList");
+  if(houseChecklistItems.length===0){
+    reusableBox.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">No reusable items yet — tap "Manage reusable list" to add your standard departure routine.</p>`;
+  } else {
+    reusableBox.innerHTML = houseChecklistItems.map(item=>{
+      const isDone = !!checked[item.id];
+      return `<div class="checklist-row ${isDone?"cl-done":""}">
+        <input type="checkbox" ${isDone?"checked":""} data-cl-toggle="${item.id}">
+        <span class="cl-label">${escapeHtml(item.label)}</span>
+      </div>`;
+    }).join("");
+    reusableBox.querySelectorAll("[data-cl-toggle]").forEach(cb=>{
+      cb.addEventListener("change", ()=> toggleDepartureChecked(cb.dataset.clToggle, cb.checked));
+    });
+  }
+
+  // Trip-specific extras
+  const extrasBox = $("departureExtrasList");
+  if(extras.length===0){
+    extrasBox.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">No trip-specific extras yet.</p>`;
+  } else {
+    extrasBox.innerHTML = extras.map(ex=>{
+      const isDone = !!checked[ex.id];
+      return `<div class="checklist-row ${isDone?"cl-done":""}">
+        <input type="checkbox" ${isDone?"checked":""} data-cl-toggle="${ex.id}">
+        <span class="cl-label">${escapeHtml(ex.label)}</span>
+        <button class="cl-remove" data-cl-remove-extra="${ex.id}">×</button>
+      </div>`;
+    }).join("");
+    extrasBox.querySelectorAll("[data-cl-toggle]").forEach(cb=>{
+      cb.addEventListener("change", ()=> toggleDepartureChecked(cb.dataset.clToggle, cb.checked));
+    });
+    extrasBox.querySelectorAll("[data-cl-remove-extra]").forEach(btn=>{
+      btn.addEventListener("click", ()=> removeDepartureExtra(btn.dataset.clRemoveExtra));
+    });
+  }
+}
+
+async function toggleDepartureChecked(itemId, isChecked){
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`departureChecklist.checked.${itemId}`]: isChecked
+    });
+    if(!activeTrip.departureChecklist) activeTrip.departureChecklist = {checked:{}, extras:[]};
+    if(!activeTrip.departureChecklist.checked) activeTrip.departureChecklist.checked = {};
+    activeTrip.departureChecklist.checked[itemId] = isChecked;
+    renderDeparturePanel();
+  }catch(err){ setStatus("Couldn't save: "+err.message,true); }
+}
+
+$("addDepartureExtraBtn").addEventListener("click", async ()=>{
+  const label = $("departureExtraInput").value.trim();
+  if(!label) return;
+  const extra = {id:makeId(), label};
+  const dc = activeTrip.departureChecklist || {checked:{}, extras:[]};
+  const updatedExtras = [...(dc.extras||[]), extra];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{ "departureChecklist.extras": updatedExtras });
+    if(!activeTrip.departureChecklist) activeTrip.departureChecklist = {checked:{}, extras:[]};
+    activeTrip.departureChecklist.extras = updatedExtras;
+    $("departureExtraInput").value = "";
+    renderDeparturePanel();
+  }catch(err){ setStatus("Couldn't save: "+err.message,true); }
+});
+$("departureExtraInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); $("addDepartureExtraBtn").click(); }
+});
+
+async function removeDepartureExtra(extraId){
+  const dc = activeTrip.departureChecklist || {checked:{}, extras:[]};
+  const updatedExtras = (dc.extras||[]).filter(ex=>ex.id!==extraId);
+  const updatedChecked = {...(dc.checked||{})};
+  delete updatedChecked[extraId];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      "departureChecklist.extras": updatedExtras,
+      "departureChecklist.checked": updatedChecked
+    });
+    activeTrip.departureChecklist = {checked:updatedChecked, extras:updatedExtras};
+    renderDeparturePanel();
+  }catch(err){ setStatus("Couldn't remove: "+err.message,true); }
+}
+
+/* ---- Manage reusable checklist template (global, shared across all trips) ---- */
+$("manageChecklistBtn").addEventListener("click", ()=>{
+  renderChecklistTemplateList();
+  $("manageChecklistOverlay").classList.add("open");
+});
+$("closeManageChecklist").addEventListener("click", ()=> $("manageChecklistOverlay").classList.remove("open"));
+
+function renderChecklistTemplateList(){
+  const box = $("checklistTemplateList");
+  if(houseChecklistItems.length===0){
+    box.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">Empty — add your standard departure-day routine below.</p>`;
+    return;
+  }
+  box.innerHTML = houseChecklistItems.map(item=>`
+    <div class="checklist-row">
+      <span class="cl-label">${escapeHtml(item.label)}</span>
+      <button class="cl-remove" data-remove-template="${item.id}">×</button>
+    </div>`).join("");
+  box.querySelectorAll("[data-remove-template]").forEach(btn=>{
+    btn.addEventListener("click", ()=> removeChecklistTemplateItem(btn.dataset.removeTemplate));
+  });
+}
+
+$("addChecklistTemplateBtn").addEventListener("click", async ()=>{
+  const label = $("checklistTemplateInput").value.trim();
+  if(!label) return;
+  try{
+    await addDoc(houseChecklistCol, { label, createdAt: serverTimestamp() });
+    $("checklistTemplateInput").value = "";
+  }catch(err){ setStatus("Couldn't add: "+err.message,true); }
+});
+$("checklistTemplateInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); $("addChecklistTemplateBtn").click(); }
+});
+
+async function removeChecklistTemplateItem(id){
+  if(!confirm("Remove this from the reusable checklist? It stays checked/unchecked on trips where it was already used, but won't show as a template item anymore.")) return;
+  try{
+    await deleteDoc(doc(db,"houseChecklistItems",id));
+  }catch(err){ setStatus("Couldn't remove: "+err.message,true); }
+}
+
+/* ---------- Phase 8: Digital Wardrobe ---------- */
+
+/* Resizes an image file client-side (max dimension, JPEG) before upload, to keep
+   Storage usage and load times small. Returns a Blob. */
+function resizeImageFile(file, maxDim=900, quality=0.82){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onerror = ()=> reject(new Error("Couldn't read the photo."));
+    reader.onload = ()=>{
+      img.onerror = ()=> reject(new Error("Couldn't read the photo."));
+      img.onload = ()=>{
+        let {width, height} = img;
+        if(width > maxDim || height > maxDim){
+          if(width >= height){ height = Math.round(height * (maxDim/width)); width = maxDim; }
+          else { width = Math.round(width * (maxDim/height)); height = maxDim; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob=>{
+          if(blob) resolve(blob); else reject(new Error("Couldn't process the photo."));
+        }, "image/jpeg", quality);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* Human members only — pets and one-off guests don't get outfit-planned wardrobes */
+function humanMembers(){ return members.filter(m=>m.type==="human"); }
+
+/* ---- Wardrobe tab: person selector + grid ---- */
+function renderWardrobeTab(){
+  const humans = humanMembers();
+  if(humans.length===0){
+    $("wardrobePersonPills").innerHTML = "";
+    $("wardrobeGrid").innerHTML = `<div class="empty"><span class="glyph">👕</span><p>Add a family member under the Family tab first — clothing items belong to a person.</p></div>`;
+    return;
+  }
+  if(!activeWardrobePersonId || !humans.some(m=>m.id===activeWardrobePersonId)){
+    activeWardrobePersonId = humans[0].id;
+  }
+  $("wardrobePersonPills").innerHTML = humans.map(m=>`
+    <button type="button" class="wardrobe-person-pill ${m.id===activeWardrobePersonId?"active":""}" data-wp="${m.id}">
+      ${m.emoji||"🧑🏽"} ${escapeHtml(m.name)}
+    </button>`).join("");
+  $("wardrobePersonPills").querySelectorAll("[data-wp]").forEach(b=>{
+    b.addEventListener("click", ()=>{ activeWardrobePersonId = b.dataset.wp; renderWardrobeTab(); });
+  });
+  renderWardrobeGrid();
+}
+
+function renderWardrobeGrid(){
+  const items = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  const grid = $("wardrobeGrid");
+  if(items.length===0){
+    grid.innerHTML = `<div class="empty" style="padding:28px 0;"><span class="glyph">📷</span><p>No clothing items yet.<br>Add a few photos to start building outfits.</p></div>`;
+    return;
+  }
+  grid.className = "wardrobe-grid";
+  grid.innerHTML = items.map(w=>`
+    <div class="wardrobe-card" data-wardrobe-item="${w.id}">
+      ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
+      <div class="wc-name">${escapeHtml(w.name)}</div>
+      <div class="wc-cat">${escapeHtml(w.category||"")}</div>
+    </div>`).join("");
+  grid.querySelectorAll("[data-wardrobe-item]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      const item = wardrobeItems.find(w=>w.id===card.dataset.wardrobeItem);
+      if(item) openWardrobeItemModal(item);
+    });
+  });
+}
+
+/* ---- Add/Edit wardrobe item modal ---- */
+function buildWardrobeMemberSelect(){
+  const humans = humanMembers();
+  $("wardrobeItemMember").innerHTML = humans.map(m=>
+    `<option value="${m.id}">${m.emoji||"🧑🏽"} ${escapeHtml(m.name)}</option>`
+  ).join("");
+}
+function buildWardrobeCategorySelect(){
+  $("wardrobeItemCategory").innerHTML = WARDROBE_CATEGORIES.map(c=>`<option>${c}</option>`).join("");
+}
+
+function openWardrobeItemModal(item){
+  editingWardrobeItemId = item ? item.id : null;
+  wardrobePendingPhotoBlob = null;
+  buildWardrobeMemberSelect();
+  buildWardrobeCategorySelect();
+
+  $("wardrobeItemModalTitle").textContent = item ? "Edit clothing item" : "Add clothing item";
+  $("wardrobeItemMember").value = item ? item.memberId : (activeWardrobePersonId || "");
+  $("wardrobeItemName").value = item ? item.name : "";
+  $("wardrobeItemCategory").value = item ? (item.category||"Other") : "Other";
+  $("deleteWardrobeItemBtn").style.display = item ? "" : "none";
+
+  $("wardrobePhotoInput").value = "";
+  if(item && item.photoURL){
+    $("wardrobePhotoPreview").src = item.photoURL;
+    $("wardrobePhotoPreview").style.display = "";
+    $("wardrobePhotoPlaceholder").style.display = "none";
+  } else {
+    $("wardrobePhotoPreview").style.display = "none";
+    $("wardrobePhotoPlaceholder").style.display = "";
+    $("wardrobePhotoPlaceholder").textContent = "Tap to choose a photo";
+  }
+  $("wardrobeItemOverlay").classList.add("open");
+}
+
+$("openAddWardrobeItem").addEventListener("click", ()=> openWardrobeItemModal(null));
+$("cancelWardrobeItem").addEventListener("click", ()=> $("wardrobeItemOverlay").classList.remove("open"));
+
+$("wardrobePhotoPreviewWrap").addEventListener("click", ()=> $("wardrobePhotoInput").click());
+$("wardrobePhotoInput").addEventListener("change", async ()=>{
+  const file = $("wardrobePhotoInput").files[0];
+  if(!file) return;
+  $("wardrobePhotoPlaceholder").style.display = "";
+  $("wardrobePhotoPlaceholder").textContent = "Processing…";
+  $("wardrobePhotoPreview").style.display = "none";
+  try{
+    const blob = await resizeImageFile(file);
+    wardrobePendingPhotoBlob = blob;
+    const url = URL.createObjectURL(blob);
+    $("wardrobePhotoPreview").src = url;
+    $("wardrobePhotoPreview").style.display = "";
+    $("wardrobePhotoPlaceholder").style.display = "none";
+  }catch(err){
+    $("wardrobePhotoPlaceholder").style.display = "";
+    $("wardrobePhotoPlaceholder").textContent = "Couldn't load that photo — try another.";
+  }
+});
+
+$("saveWardrobeItemBtn").addEventListener("click", async ()=>{
+  const memberId = $("wardrobeItemMember").value;
+  const name = $("wardrobeItemName").value.trim();
+  const category = $("wardrobeItemCategory").value;
+  if(!memberId){ setStatus("Add a family member first.", true); return; }
+  if(!name){ setStatus("Give the item a name.", true); return; }
+
+  const btn = $("saveWardrobeItemBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+  try{
+    let photoURL = null, storagePath = null;
+    const existing = editingWardrobeItemId ? wardrobeItems.find(w=>w.id===editingWardrobeItemId) : null;
+
+    if(wardrobePendingPhotoBlob){
+      storagePath = `wardrobe/${memberId}/${makeId()}_${Date.now()}.jpg`;
+      const fileRef = storageRef(storage, storagePath);
+      await uploadBytes(fileRef, wardrobePendingPhotoBlob);
+      photoURL = await getDownloadURL(fileRef);
+      // Clean up the old photo if we're replacing one on an existing item
+      if(existing && existing.storagePath){
+        try{ await deleteObject(storageRef(storage, existing.storagePath)); }catch(e){ /* non-fatal */ }
+      }
+    } else if(existing){
+      photoURL = existing.photoURL || null;
+      storagePath = existing.storagePath || null;
+    }
+
+    const data = { memberId, name, category, photoURL, storagePath };
+    if(editingWardrobeItemId){
+      await updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), data);
+    } else {
+      await addDoc(wardrobeCol, {...data, createdAt: serverTimestamp()});
+    }
+    $("wardrobeItemOverlay").classList.remove("open");
+    setStatus("");
+  }catch(err){
+    setStatus("Couldn't save item: "+err.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = "Save";
+  }
+});
+
+$("deleteWardrobeItemBtn").addEventListener("click", async ()=>{
+  if(!editingWardrobeItemId) return;
+  if(!confirm("Delete this clothing item? It'll also disappear from any outfits it's currently part of.")) return;
+  const item = wardrobeItems.find(w=>w.id===editingWardrobeItemId);
+  try{
+    await deleteDoc(doc(db,"wardrobeItems",editingWardrobeItemId));
+    if(item && item.storagePath){
+      try{ await deleteObject(storageRef(storage, item.storagePath)); }catch(e){ /* non-fatal */ }
+    }
+    $("wardrobeItemOverlay").classList.remove("open");
+  }catch(err){ setStatus("Couldn't delete: "+err.message, true); }
+});
+
+/* ---- Wardrobe picker (choosing photo items into an outfit slot from the day plan page) ---- */
+function openWardrobePicker(memberId, slotKey){
+  wardrobePickerContext = {memberId, slotKey};
+  const m = members.find(x=>x.id===memberId);
+  $("wardrobePickerTitle").textContent = m ? `${m.emoji||"🧑🏽"} ${m.name}'s wardrobe` : "Choose from wardrobe";
+  renderWardrobePickerGrid();
+  $("wardrobePickerOverlay").classList.add("open");
+}
+
+function renderWardrobePickerGrid(){
+  const grid = $("wardrobePickerGrid");
+  if(!wardrobePickerContext){ grid.innerHTML=""; return; }
+  const items = wardrobeItems.filter(w=>w.memberId===wardrobePickerContext.memberId);
+  if(items.length===0){
+    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No items in this wardrobe yet — add some from the Wardrobe tab first.</p>`;
+    return;
+  }
+  grid.innerHTML = items.map(w=>`
+    <div class="wardrobe-card" data-pick-item="${w.id}">
+      ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
+      <div class="wc-name">${escapeHtml(w.name)}</div>
+      <div class="wc-cat">${escapeHtml(w.category||"")}</div>
+    </div>`).join("");
+  grid.querySelectorAll("[data-pick-item]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      const item = wardrobeItems.find(w=>w.id===card.dataset.pickItem);
+      if(item) addWardrobeItemToOutfitSlot(item);
+    });
+  });
+}
+
+$("doneWardrobePicker").addEventListener("click", ()=>{
+  $("wardrobePickerOverlay").classList.remove("open");
+  wardrobePickerContext = null;
+});
+
 /* ---------- Phase 5: Per-Person Packing Lists ---------- */
 
 let activePackMemberId = null;
@@ -2030,7 +2640,7 @@ let activePackMemberId = null;
 /* Build deduplicated outfit items for one member across all days */
 function buildOutfitItems(trip, memberId){
   const days = generateDays(trip.startDate, trip.endDate);
-  const itemMap = {}; // normalizedName -> {name, days: Set}
+  const itemMap = {}; // dedup key -> {name, photoURL, days: Set}
   days.forEach(date=>{
     const dayData = (trip.days||{})[date]||{};
     const memberOutfits = (dayData.outfits||{})[memberId]||{};
@@ -2038,8 +2648,10 @@ function buildOutfitItems(trip, memberId){
     const dow = d.toLocaleDateString(undefined,{weekday:"short"});
     Object.values(memberOutfits).forEach(items=>{
       (items||[]).forEach(item=>{
-        const key = item.toLowerCase().trim();
-        if(!itemMap[key]) itemMap[key] = {name:item, days:new Set()};
+        const isWardrobe = item && typeof item==="object" && item.type==="wardrobe";
+        const name = isWardrobe ? item.name : item;
+        const key = isWardrobe ? `w:${item.itemId}` : `t:${name.toLowerCase().trim()}`;
+        if(!itemMap[key]) itemMap[key] = {name, photoURL: isWardrobe?item.photoURL:null, days:new Set()};
         itemMap[key].days.add(dow);
       });
     });
@@ -2047,6 +2659,7 @@ function buildOutfitItems(trip, memberId){
   return Object.entries(itemMap).map(([key,val])=>({
     key:`outfit:${key}`,
     name:val.name,
+    photoURL:val.photoURL,
     note:[...val.days].join(", "),
   }));
 }
@@ -2057,7 +2670,7 @@ function buildPackingList(trip, memberId){
   // Group essential items by category
   const essentialItems = (trip.essentials||[])
     .filter(e=>e.memberId===memberId)
-    .map(e=>({key:`ess:${e.id}`, name:e.item, category:e.category}));
+    .map(e=>({key:`ess:${e.id}`, name:e.item, category:e.category, qty:e.qty||1}));
   return {outfitItems, essentialItems};
 }
 
@@ -2182,8 +2795,10 @@ function renderPersonPackPage(){
     html += `<div class="pack-section-label">Outfits</div>`;
     html += outfitItems.map(item=>{
       const isPacked = !!packedMap[item.key];
+      const thumb = item.photoURL ? `<img class="wardrobe-pack-thumb" src="${item.photoURL}" alt="">` : "";
       return `<div class="pack-item-row ${isPacked?"is-packed":""}">
         <input type="checkbox" ${isPacked?"checked":""} data-item-key="${escapeHtml(item.key)}">
+        ${thumb}
         <span class="pack-item-name">${escapeHtml(item.name)}</span>
         ${item.note?`<span class="pack-item-note">${escapeHtml(item.note)}</span>`:""}
       </div>`;
@@ -2201,9 +2816,10 @@ function renderPersonPackPage(){
     html += `<div class="pack-section-label" style="color:${c.text};">${cat}</div>`;
     html += items.map(item=>{
       const isPacked = !!packedMap[item.key];
+      const qtySuffix = item.qty>1 ? ` <span class="ess-qty">×${item.qty}</span>` : "";
       return `<div class="pack-item-row ${isPacked?"is-packed":""}">
         <input type="checkbox" ${isPacked?"checked":""} data-item-key="${escapeHtml(item.key)}">
-        <span class="pack-item-name">${escapeHtml(item.name)}</span>
+        <span class="pack-item-name">${escapeHtml(item.name)}${qtySuffix}</span>
       </div>`;
     }).join("");
   });
@@ -2245,6 +2861,95 @@ document.querySelectorAll(".inner-tab").forEach(tab=>{
   if(tab.dataset.inner==="pack"){
     tab.addEventListener("click", renderPackTab);
   }
+});
+
+/* ---------- Share / Print packing lists ---------- */
+
+/* Plain-text summary for one person (or SHARED_ID) — checkboxes reflect current packed state */
+function buildPersonPackText(trip, memberId, label){
+  const {outfitItems, essentialItems} = buildPackingList(trip, memberId);
+  const packedMap = (trip.packed||{})[memberId]||{};
+  const lines = [label];
+  if(outfitItems.length){
+    lines.push("Outfits:");
+    outfitItems.forEach(item=>{
+      const mark = packedMap[item.key] ? "x" : " ";
+      lines.push(`  [${mark}] ${item.name}${item.note?` (${item.note})`:""}`);
+    });
+  }
+  const catGroups = {};
+  essentialItems.forEach(e=>{ (catGroups[e.category]=catGroups[e.category]||[]).push(e); });
+  Object.entries(catGroups).forEach(([cat,items])=>{
+    lines.push(`${cat}:`);
+    items.forEach(e=>{
+      const mark = packedMap[e.key] ? "x" : " ";
+      const qtyStr = e.qty>1 ? ` ×${e.qty}` : "";
+      lines.push(`  [${mark}] ${e.name}${qtyStr}`);
+    });
+  });
+  if(!outfitItems.length && !essentialItems.length) lines.push("  (nothing planned yet)");
+  return lines.join("\n");
+}
+
+/* Full trip summary — shared items first, then each person */
+function buildTripPackText(trip){
+  const header = `${trip.name}${trip.location?" — "+trip.location:""}\n${formatRange(trip.startDate,trip.endDate)}`.trim();
+  const sections = [header];
+  const hasShared = (trip.essentials||[]).some(e=>e.memberId===SHARED_ID);
+  if(hasShared) sections.push(buildPersonPackText(trip, SHARED_ID, "🎉 Shared (Trip-wide)"));
+  (trip.roster||[]).forEach(r=>{
+    if(!r.memberId) return; // one-off guests aren't tracked in the packing system
+    const m = members.find(x=>x.id===r.memberId);
+    if(!m) return;
+    sections.push(buildPersonPackText(trip, m.id, `${m.emoji||"🧑🏽"} ${m.name}`));
+  });
+  return sections.join("\n\n");
+}
+
+/* Uses the Web Share API on mobile when available; falls back to copying to the clipboard. */
+async function shareOrCopyText(text, title){
+  if(navigator.share){
+    try{
+      await navigator.share({title, text});
+      return;
+    }catch(err){
+      if(err && err.name === "AbortError") return; // user cancelled the share sheet, not an error
+      // fall through to clipboard on any other failure
+    }
+  }
+  try{
+    await navigator.clipboard.writeText(text);
+    setStatus("Packing list copied to clipboard!");
+  }catch(err){
+    setStatus("Couldn't share or copy — try again.", true);
+  }
+}
+
+/* Opens a plain-text-friendly print view in a new tab and triggers the print dialog */
+function printPackText(text, title){
+  const w = window.open("", "_blank");
+  if(!w){ setStatus("Pop-up blocked — allow pop-ups to print.", true); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>
+    <style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#2B2620;}
+    pre{white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.6;}</style>
+    </head><body><pre>${escapeHtml(text)}</pre></body></html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
+$("shareTripPackBtn").addEventListener("click", ()=>{
+  if(!activeTrip) return;
+  shareOrCopyText(buildTripPackText(activeTrip), `${activeTrip.name} — Packing List`);
+});
+$("printTripPackBtn").addEventListener("click", ()=>{
+  if(!activeTrip) return;
+  printPackText(buildTripPackText(activeTrip), `${activeTrip.name} — Packing List`);
+});
+$("sharePersonPackBtn").addEventListener("click", ()=>{
+  if(!activeTrip || !activePackMemberId) return;
+  const label = $("personPackName").textContent;
+  shareOrCopyText(buildPersonPackText(activeTrip, activePackMemberId, label), `${label} — Packing List`);
 });
 
 /* ---- Wire up location autocomplete ---- */
