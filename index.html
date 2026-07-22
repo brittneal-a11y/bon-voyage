@@ -403,6 +403,31 @@
   }
   .collage-chip .cc-remove:hover{color:var(--rose);border-color:var(--rose);}
   .wardrobe-pack-thumb{width:28px;height:28px;object-fit:cover;border-radius:6px;flex-shrink:0;}
+
+  /* ---- Outfit collage canvas + saved outfit library ---- */
+  .collage-canvas-wrap{
+    width:100%;aspect-ratio:1/1;border-radius:12px;overflow:hidden;
+    background:var(--canvas-raised);border:1px solid var(--line);
+  }
+  .collage-canvas-wrap canvas{width:100%;height:100%;display:block;}
+  .saved-outfit-card{
+    background:var(--canvas-raised);border:1px solid var(--line);border-radius:12px;
+    overflow:hidden;cursor:pointer;transition:transform .12s, box-shadow .12s;
+  }
+  .saved-outfit-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+  .saved-outfit-card .so-name{font-size:13px;font-weight:600;padding:8px 10px;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .saved-outfit-card .so-count{font-size:11px;color:var(--ink-soft);padding:0 10px 8px;}
+  .outfit-builder-grid{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;
+    max-height:280px;overflow-y:auto;padding:2px;
+  }
+  .outfit-builder-grid .wardrobe-card{position:relative;}
+  .outfit-builder-grid .wardrobe-card.selected::after{
+    content:'✓';position:absolute;top:6px;right:6px;
+    width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+  }
   .essential-item-row .remove-ess-btn{
     background:none;border:none;cursor:pointer;color:var(--ink-soft);
     font-size:15px;padding:2px 4px;border-radius:4px;
@@ -614,8 +639,21 @@
   <section class="view" id="view-wardrobe">
     <div class="section-label">Whose closet?</div>
     <div class="wardrobe-person-pills" id="wardrobePersonPills"></div>
-    <div id="wardrobeGrid" style="margin-top:14px;"></div>
-    <button class="btn btn-ghost btn-block" id="openAddWardrobeItem" style="margin-top:14px;">+ Add clothing item</button>
+
+    <nav class="inner-tabs" style="margin-top:14px;">
+      <button class="inner-tab active" data-wardrobe-inner="items">👕 Items</button>
+      <button class="inner-tab" data-wardrobe-inner="outfits">📚 Outfits</button>
+    </nav>
+
+    <div class="inner-panel active" id="wardrobe-panel-items">
+      <div id="wardrobeGrid" style="margin-top:14px;"></div>
+      <button class="btn btn-ghost btn-block" id="openAddWardrobeItem" style="margin-top:14px;">+ Add clothing item</button>
+    </div>
+
+    <div class="inner-panel" id="wardrobe-panel-outfits">
+      <div id="savedOutfitsGrid" style="margin-top:14px;"></div>
+      <button class="btn btn-ghost btn-block" id="openCreateOutfit" style="margin-top:14px;">+ Create outfit</button>
+    </div>
   </section>
 </div>
 
@@ -834,6 +872,7 @@
 <div class="overlay" id="wardrobeItemOverlay">
   <div class="modal">
     <h2 id="wardrobeItemModalTitle">Add clothing item</h2>
+    <div id="wardrobeItemError" style="display:none;background:#FDECEA;color:#9B2B2B;font-size:13px;padding:9px 12px;border-radius:9px;margin-bottom:12px;"></div>
     <div class="field">
       <label>Whose item?</label>
       <select id="wardrobeItemMember"></select>
@@ -870,6 +909,45 @@
     <div id="wardrobePickerGrid" class="wardrobe-grid" style="margin-top:10px;"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="doneWardrobePicker" style="flex:1;">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- OUTFIT BUILDER MODAL (create/edit a saved, reusable outfit with a live collage preview) -->
+<div class="overlay" id="outfitBuilderOverlay">
+  <div class="modal">
+    <h2 id="outfitBuilderTitle">Create outfit</h2>
+    <div id="outfitBuilderError" style="display:none;background:#FDECEA;color:#9B2B2B;font-size:13px;padding:9px 12px;border-radius:9px;margin-bottom:12px;"></div>
+    <div class="field">
+      <label>Outfit name</label>
+      <input type="text" id="outfitBuilderName" placeholder="e.g. Beach Casual">
+    </div>
+    <div class="field">
+      <label>Preview</label>
+      <div class="collage-canvas-wrap" style="max-width:220px;margin:0 auto;">
+        <canvas id="outfitBuilderCanvas" width="440" height="440"></canvas>
+      </div>
+    </div>
+    <div class="field">
+      <label>Pick items from this person's wardrobe</label>
+      <div id="outfitBuilderGrid" class="outfit-builder-grid"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="deleteSavedOutfitBtn" style="display:none;">Delete</button>
+      <button class="btn btn-ghost" id="cancelOutfitBuilder">Cancel</button>
+      <button class="btn btn-primary" id="saveOutfitBuilderBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- SAVED OUTFIT PICKER MODAL (apply a saved outfit's items into an outfit slot, from day planning) -->
+<div class="overlay" id="savedOutfitPickerOverlay">
+  <div class="modal">
+    <h2 id="savedOutfitPickerTitle">Use a saved outfit</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">Tap an outfit to add all its pieces to this slot.</p>
+    <div id="savedOutfitPickerGrid" class="wardrobe-grid" style="margin-top:10px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="closeSavedOutfitPicker" style="flex:1;">Close</button>
     </div>
   </div>
 </div>
@@ -974,6 +1052,7 @@ const membersCol = collection(db, "members");
 const tripsCol = collection(db, "trips");
 const houseChecklistCol = collection(db, "houseChecklistItems"); // global reusable departure checklist template
 const wardrobeCol = collection(db, "wardrobeItems"); // global digital wardrobe, scoped per member
+const savedOutfitsCol = collection(db, "savedOutfits"); // reusable named outfits, scoped per member
 const WARDROBE_CATEGORIES = ["Tops","Bottoms","Dresses","Shoes","Outerwear","Accessories","Other"];
 
 const EMOJIS = ["🧑🏽","👩🏽","👨🏽","🧑🏾","👩🏾","👨🏾","🧒🏽","👧🏽","👦🏽","👶🏽","🧓🏽","🧔🏽","🐶","🐱","🐾"];
@@ -998,9 +1077,14 @@ let templateSourceTrip = null; // set when tripOverlay was opened "start from th
 let houseChecklistItems = [];  // global reusable departure checklist template
 let wardrobeItems = [];        // global digital wardrobe items, each scoped to a memberId
 let activeWardrobePersonId = null;   // which person's closet is showing on the Wardrobe tab
+let activeWardrobeInnerTab = "items"; // "items" or "outfits" sub-tab within the Wardrobe view
 let editingWardrobeItemId = null;    // set when the wardrobe item modal is editing rather than adding
 let wardrobePendingPhotoBlob = null; // resized image blob staged for upload on save
 let wardrobePickerContext = null;    // {memberId, slotKey} while the outfit-slot wardrobe picker is open
+let savedOutfits = [];               // reusable named outfits: {id, memberId, name, itemIds}
+let editingSavedOutfitId = null;     // set when the outfit builder modal is editing rather than adding
+let outfitBuilderSelectedIds = new Set(); // wardrobe item ids currently checked in the outfit builder
+let savedOutfitPickerContext = null; // {memberId, slotKey} while the outfit-slot "use saved outfit" picker is open
 
 /* ---------- Location autocomplete ---------- */
 
@@ -1091,6 +1175,11 @@ onSnapshot(query(wardrobeCol, orderBy("createdAt","desc")), (snap)=>{
   wardrobeItems = snap.docs.map(d=>({id:d.id, ...d.data()}));
   if($("view-wardrobe").classList.contains("active")) renderWardrobeTab();
 }, (err)=> setStatus("Couldn't load wardrobe: "+err.message, true));
+
+onSnapshot(query(savedOutfitsCol, orderBy("createdAt","desc")), (snap)=>{
+  savedOutfits = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  if($("view-wardrobe").classList.contains("active")) renderWardrobeTab();
+}, (err)=> setStatus("Couldn't load outfit library: "+err.message, true));
 
 /* ---------- Render: Family ---------- */
 function renderMembers(){
@@ -1881,7 +1970,13 @@ function renderDayOutfitsArea(){
       const photoItems = items.map((item,idx)=>({item,idx})).filter(x=>x.item && typeof x.item==="object" && x.item.type==="wardrobe");
       const textItems  = items.map((item,idx)=>({item,idx})).filter(x=>!(x.item && typeof x.item==="object" && x.item.type==="wardrobe"));
 
-      const collageHtml = photoItems.length ? `<div class="outfit-collage">${photoItems.map(({item,idx})=>`
+      // A composed, flat-lay-style collage preview — purely visual, non-interactive
+      const collagePreviewHtml = photoItems.length ? `
+        <div class="collage-canvas-wrap" style="max-width:220px;margin-bottom:10px;" data-collage-slot="${m.id}_${slot.key}"></div>
+      ` : "";
+
+      // Editable chip row underneath, where individual pieces can be removed
+      const collageChipsHtml = photoItems.length ? `<div class="outfit-collage">${photoItems.map(({item,idx})=>`
         <div class="collage-chip">
           ${item.photoURL ? `<img src="${item.photoURL}" alt="${escapeHtml(item.name)}">` : `<div class="wc-photo-placeholder" style="border-radius:10px;">👕</div>`}
           <div class="cc-name">${escapeHtml(item.name)}</div>
@@ -1898,12 +1993,14 @@ function renderDayOutfitsArea(){
       return `
         <div class="outfit-slot">
           <div class="outfit-slot-label"><span class="slot-icon">${slot.icon}</span>${slot.label}</div>
-          ${collageHtml}
+          ${collagePreviewHtml}
+          ${collageChipsHtml}
           <div class="outfit-items-list">${itemsHtml}</div>
           <div class="outfit-add-row">
             <input type="text" placeholder="Add item…" data-add-m="${m.id}" data-add-slot="${slot.key}">
             <button class="add-item-btn" data-btn-m="${m.id}" data-btn-slot="${slot.key}">Add</button>
             <button class="add-item-btn" style="background:var(--amber);" data-wardrobe-m="${m.id}" data-wardrobe-slot="${slot.key}" title="Choose from wardrobe">👕</button>
+            <button class="add-item-btn" style="background:var(--sage);" data-saved-outfit-m="${m.id}" data-saved-outfit-slot="${slot.key}" title="Use a saved outfit">📚</button>
           </div>
         </div>`;
     }).join("");
@@ -1917,6 +2014,19 @@ function renderDayOutfitsArea(){
         ${slotsHtml}
       </div>`;
   }).join("");
+
+  // Draw the composed collage preview for every slot that has wardrobe-photo items
+  $("dayOutfitsArea").querySelectorAll("[data-collage-slot]").forEach(wrap=>{
+    const raw = wrap.dataset.collageSlot;
+    const sep = raw.indexOf("_"); // memberId never contains "_" (Firestore auto-ids), but slotKey can (e.g. act_xyz)
+    const memberId = raw.slice(0, sep);
+    const slotKey = raw.slice(sep+1);
+    const items = ((outfits[memberId]||{})[slotKey]||[]).filter(i=>i && typeof i==="object" && i.type==="wardrobe");
+    const canvas = document.createElement("canvas");
+    canvas.width = 300; canvas.height = 300;
+    wrap.appendChild(canvas);
+    drawOutfitCollage(canvas, items);
+  });
 
   // Wire up remove buttons (works for both legacy text rows and collage chips — index-based)
   $("dayOutfitsArea").querySelectorAll("[data-m][data-slot][data-idx]").forEach(btn=>{
@@ -1940,6 +2050,10 @@ function renderDayOutfitsArea(){
   // Wire up "choose from wardrobe" buttons
   $("dayOutfitsArea").querySelectorAll("[data-wardrobe-m]").forEach(btn=>{
     btn.addEventListener("click", ()=> openWardrobePicker(btn.dataset.wardrobeM, btn.dataset.wardrobeSlot));
+  });
+  // Wire up "use a saved outfit" buttons
+  $("dayOutfitsArea").querySelectorAll("[data-saved-outfit-m]").forEach(btn=>{
+    btn.addEventListener("click", ()=> openSavedOutfitPicker(btn.dataset.savedOutfitM, btn.dataset.savedOutfitSlot));
   });
 }
 
@@ -2142,15 +2256,27 @@ function essItemLabel(e){
   return qty > 1 ? `${escapeHtml(e.item)} <span class="ess-qty">×${qty}</span>` : escapeHtml(e.item);
 }
 
-/* ---- Inner tab switching on trip detail page ---- */
-document.querySelectorAll(".inner-tab").forEach(tab=>{
+/* ---- Inner tab switching on trip detail page (scoped so it never touches Wardrobe's sub-tabs) ---- */
+document.querySelectorAll("#tripDetailPage .inner-tab").forEach(tab=>{
   tab.addEventListener("click", ()=>{
-    document.querySelectorAll(".inner-tab").forEach(t=>t.classList.remove("active"));
-    document.querySelectorAll(".inner-panel").forEach(p=>p.classList.remove("active"));
+    document.querySelectorAll("#tripDetailPage .inner-tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll("#tripDetailPage .inner-panel").forEach(p=>p.classList.remove("active"));
     tab.classList.add("active");
     $("panel-"+tab.dataset.inner).classList.add("active");
     if(tab.dataset.inner==="essentials") renderEssentials();
     if(tab.dataset.inner==="departure") renderDeparturePanel();
+  });
+});
+
+/* ---- Sub-tab switching for the Wardrobe view (Items / Outfits), scoped separately ---- */
+document.querySelectorAll("#view-wardrobe .inner-tab").forEach(tab=>{
+  tab.addEventListener("click", ()=>{
+    document.querySelectorAll("#view-wardrobe .inner-tab").forEach(t=>t.classList.remove("active"));
+    document.querySelectorAll("#view-wardrobe .inner-panel").forEach(p=>p.classList.remove("active"));
+    tab.classList.add("active");
+    activeWardrobeInnerTab = tab.dataset.wardrobeInner;
+    $("wardrobe-panel-"+activeWardrobeInnerTab).classList.add("active");
+    renderWardrobeTab();
   });
 });
 
@@ -2440,12 +2566,13 @@ function resizeImageFile(file, maxDim=900, quality=0.82){
 /* Human members only — pets and one-off guests don't get outfit-planned wardrobes */
 function humanMembers(){ return members.filter(m=>m.type==="human"); }
 
-/* ---- Wardrobe tab: person selector + grid ---- */
+/* ---- Wardrobe tab: person selector, then Items or Outfits panel ---- */
 function renderWardrobeTab(){
   const humans = humanMembers();
   if(humans.length===0){
     $("wardrobePersonPills").innerHTML = "";
     $("wardrobeGrid").innerHTML = `<div class="empty"><span class="glyph">👕</span><p>Add a family member under the Family tab first — clothing items belong to a person.</p></div>`;
+    $("savedOutfitsGrid").innerHTML = "";
     return;
   }
   if(!activeWardrobePersonId || !humans.some(m=>m.id===activeWardrobePersonId)){
@@ -2458,7 +2585,122 @@ function renderWardrobeTab(){
   $("wardrobePersonPills").querySelectorAll("[data-wp]").forEach(b=>{
     b.addEventListener("click", ()=>{ activeWardrobePersonId = b.dataset.wp; renderWardrobeTab(); });
   });
-  renderWardrobeGrid();
+  if(activeWardrobeInnerTab==="outfits") renderSavedOutfitsGrid();
+  else renderWardrobeGrid();
+}
+
+/* ---- Outfit collage canvas renderer ----
+   Draws a set of item photos onto a canvas in a pleasant flat-lay-style arrangement
+   with soft drop shadows on a neutral background. Purely visual (no export) so it
+   works even on photos without CORS headers — we only ever draw, never read pixels back. */
+const COLLAGE_LAYOUTS = {
+  1: [[0.5,0.5,0.7]],
+  2: [[0.28,0.5,0.5],[0.72,0.5,0.5]],
+  3: [[0.5,0.27,0.5],[0.26,0.72,0.42],[0.74,0.72,0.42]],
+  4: [[0.27,0.27,0.44],[0.73,0.27,0.44],[0.27,0.73,0.44],[0.73,0.73,0.44]],
+  5: [[0.5,0.2,0.36],[0.2,0.5,0.36],[0.8,0.5,0.36],[0.3,0.82,0.34],[0.7,0.82,0.34]],
+  6: [[0.22,0.22,0.34],[0.5,0.22,0.34],[0.78,0.22,0.34],[0.22,0.72,0.34],[0.5,0.72,0.34],[0.78,0.72,0.34]],
+};
+function layoutFor(count){
+  if(count<=0) return [];
+  if(COLLAGE_LAYOUTS[count]) return COLLAGE_LAYOUTS[count];
+  // Beyond 6: fall back to a simple grid, most-recent-first, capped visually at a reasonable density
+  const cols = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count/cols);
+  const cellW = 1/cols, cellH = 1/rows;
+  const positions = [];
+  for(let i=0;i<count;i++){
+    const col = i%cols, row = Math.floor(i/cols);
+    positions.push([cellW*(col+0.5), cellH*(row+0.5), Math.min(cellW,cellH)*0.85]);
+  }
+  return positions;
+}
+
+const collageImageCache = new Map(); // photoURL -> loaded HTMLImageElement (or null if it failed)
+function loadCollageImage(url){
+  if(collageImageCache.has(url)) return Promise.resolve(collageImageCache.get(url));
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.onload = ()=>{ collageImageCache.set(url, img); resolve(img); };
+    img.onerror = ()=>{ collageImageCache.set(url, null); resolve(null); };
+    img.src = url;
+  });
+}
+
+async function drawOutfitCollage(canvas, items){
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  // Soft neutral backdrop, like a fabric/table flat-lay surface
+  const grad = ctx.createRadialGradient(W/2,H/2,W*0.1,W/2,H/2,W*0.7);
+  grad.addColorStop(0, "#FFFDF8");
+  grad.addColorStop(1, "#F0E9DC");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,W,H);
+
+  const withPhotos = items.filter(i=>i.photoURL);
+  if(withPhotos.length===0){
+    ctx.fillStyle = "#B0A693";
+    ctx.font = `${Math.round(W*0.09)}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("👕", W/2, H/2);
+    return;
+  }
+
+  const positions = layoutFor(withPhotos.length);
+  const images = await Promise.all(withPhotos.map(i=>loadCollageImage(i.photoURL)));
+
+  images.forEach((img, idx)=>{
+    if(!img) return;
+    const [cx, cy, sizeFrac] = positions[idx];
+    const boxSize = W * sizeFrac;
+    const x = cx*W, y = cy*H;
+    // Fit image into the box, preserving aspect ratio
+    const scale = Math.min(boxSize/img.width, boxSize/img.height);
+    const dw = img.width*scale, dh = img.height*scale;
+    ctx.save();
+    ctx.shadowColor = "rgba(43,38,32,0.22)";
+    ctx.shadowBlur = W*0.025;
+    ctx.shadowOffsetY = W*0.012;
+    ctx.drawImage(img, x-dw/2, y-dh/2, dw, dh);
+    ctx.restore();
+  });
+}
+
+function renderSavedOutfitsGrid(){
+  const outfits = savedOutfits.filter(o=>o.memberId===activeWardrobePersonId);
+  const grid = $("savedOutfitsGrid");
+  if(outfits.length===0){
+    grid.innerHTML = `<div class="empty" style="padding:28px 0;"><span class="glyph">📚</span><p>No saved outfits yet.<br>Combine a few wardrobe items into a reusable outfit.</p></div>`;
+    return;
+  }
+  grid.className = "wardrobe-grid";
+  grid.innerHTML = outfits.map(o=>`
+    <div class="saved-outfit-card" data-saved-outfit="${o.id}">
+      <div class="collage-canvas-wrap"><canvas data-collage-canvas="${o.id}" width="300" height="300"></canvas></div>
+      <div class="so-name">${escapeHtml(o.name)}</div>
+      <div class="so-count">${(o.itemIds||[]).length} piece${(o.itemIds||[]).length!==1?"s":""}</div>
+    </div>`).join("");
+  grid.querySelectorAll("[data-collage-canvas]").forEach(canvas=>{
+    const outfit = outfits.find(o=>o.id===canvas.dataset.collageCanvas);
+    const items = resolveOutfitItems(outfit);
+    drawOutfitCollage(canvas, items);
+  });
+  grid.querySelectorAll("[data-saved-outfit]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      const outfit = outfits.find(o=>o.id===card.dataset.savedOutfit);
+      if(outfit) openOutfitBuilder(outfit);
+    });
+  });
+}
+
+/* Resolves a saved outfit's itemIds against the live wardrobeItems list, dropping any that were deleted */
+function resolveOutfitItems(outfit){
+  if(!outfit) return [];
+  return (outfit.itemIds||[])
+    .map(id=>wardrobeItems.find(w=>w.id===id))
+    .filter(Boolean);
 }
 
 function renderWardrobeGrid(){
@@ -2501,6 +2743,8 @@ function openWardrobeItemModal(item){
   buildWardrobeCategorySelect();
 
   $("wardrobeItemModalTitle").textContent = item ? "Edit clothing item" : "Add clothing item";
+  $("wardrobeItemError").style.display = "none";
+  $("wardrobeItemError").textContent = "";
   $("wardrobeItemMember").value = item ? item.memberId : (activeWardrobePersonId || "");
   $("wardrobeItemName").value = item ? item.name : "";
   $("wardrobeItemCategory").value = item ? (item.category||"Other") : "Other";
@@ -2542,14 +2786,32 @@ $("wardrobePhotoInput").addEventListener("change", async ()=>{
   }
 });
 
+/* Wraps a promise so it rejects with a clear message instead of hanging forever —
+   e.g. if Firebase Storage isn't enabled yet, uploadBytes can otherwise stall silently. */
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=> setTimeout(()=> reject(new Error(
+      `${label} timed out. This usually means Firebase Storage isn't enabled yet on the Blaze plan — check Firebase Console → Build → Storage.`
+    )), ms))
+  ]);
+}
+
+function showWardrobeItemError(msg){
+  $("wardrobeItemError").textContent = msg;
+  $("wardrobeItemError").style.display = "";
+  setStatus(msg, true); // also mirror to the background banner
+}
+
 $("saveWardrobeItemBtn").addEventListener("click", async ()=>{
   const memberId = $("wardrobeItemMember").value;
   const name = $("wardrobeItemName").value.trim();
   const category = $("wardrobeItemCategory").value;
-  if(!memberId){ setStatus("Add a family member first.", true); return; }
-  if(!name){ setStatus("Give the item a name.", true); return; }
+  if(!memberId){ showWardrobeItemError("Add a family member first."); return; }
+  if(!name){ showWardrobeItemError("Give the item a name."); return; }
 
   const btn = $("saveWardrobeItemBtn");
+  $("wardrobeItemError").style.display = "none";
   btn.disabled = true; btn.textContent = "Saving…";
   try{
     let photoURL = null, storagePath = null;
@@ -2558,8 +2820,8 @@ $("saveWardrobeItemBtn").addEventListener("click", async ()=>{
     if(wardrobePendingPhotoBlob){
       storagePath = `wardrobe/${memberId}/${makeId()}_${Date.now()}.jpg`;
       const fileRef = storageRef(storage, storagePath);
-      await uploadBytes(fileRef, wardrobePendingPhotoBlob);
-      photoURL = await getDownloadURL(fileRef);
+      await withTimeout(uploadBytes(fileRef, wardrobePendingPhotoBlob), 20000, "Photo upload");
+      photoURL = await withTimeout(getDownloadURL(fileRef), 15000, "Fetching photo URL");
       // Clean up the old photo if we're replacing one on an existing item
       if(existing && existing.storagePath){
         try{ await deleteObject(storageRef(storage, existing.storagePath)); }catch(e){ /* non-fatal */ }
@@ -2571,14 +2833,14 @@ $("saveWardrobeItemBtn").addEventListener("click", async ()=>{
 
     const data = { memberId, name, category, photoURL, storagePath };
     if(editingWardrobeItemId){
-      await updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), data);
+      await withTimeout(updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), data), 15000, "Saving to database");
     } else {
-      await addDoc(wardrobeCol, {...data, createdAt: serverTimestamp()});
+      await withTimeout(addDoc(wardrobeCol, {...data, createdAt: serverTimestamp()}), 15000, "Saving to database");
     }
     $("wardrobeItemOverlay").classList.remove("open");
     setStatus("");
   }catch(err){
-    setStatus("Couldn't save item: "+err.message, true);
+    showWardrobeItemError(err.message || "Couldn't save item — check your connection and try again.");
   } finally {
     btn.disabled = false; btn.textContent = "Save";
   }
@@ -2631,6 +2893,161 @@ function renderWardrobePickerGrid(){
 $("doneWardrobePicker").addEventListener("click", ()=>{
   $("wardrobePickerOverlay").classList.remove("open");
   wardrobePickerContext = null;
+});
+
+/* ---- Outfit builder: create/edit a saved, reusable outfit ---- */
+function showOutfitBuilderError(msg){
+  $("outfitBuilderError").textContent = msg;
+  $("outfitBuilderError").style.display = "";
+  setStatus(msg, true);
+}
+
+function openOutfitBuilder(outfit){
+  editingSavedOutfitId = outfit ? outfit.id : null;
+  outfitBuilderSelectedIds = new Set(outfit ? (outfit.itemIds||[]) : []);
+  $("outfitBuilderTitle").textContent = outfit ? "Edit outfit" : "Create outfit";
+  $("outfitBuilderError").style.display = "none";
+  $("outfitBuilderName").value = outfit ? outfit.name : "";
+  $("deleteSavedOutfitBtn").style.display = outfit ? "" : "none";
+  renderOutfitBuilderGrid();
+  refreshOutfitBuilderPreview();
+  $("outfitBuilderOverlay").classList.add("open");
+}
+
+function renderOutfitBuilderGrid(){
+  const items = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  const grid = $("outfitBuilderGrid");
+  if(items.length===0){
+    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No wardrobe items for this person yet — add some under the Items tab first.</p>`;
+    return;
+  }
+  grid.innerHTML = items.map(w=>`
+    <div class="wardrobe-card ${outfitBuilderSelectedIds.has(w.id)?"selected":""}" data-builder-item="${w.id}">
+      ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
+      <div class="wc-name">${escapeHtml(w.name)}</div>
+    </div>`).join("");
+  grid.querySelectorAll("[data-builder-item]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      const id = card.dataset.builderItem;
+      if(outfitBuilderSelectedIds.has(id)) outfitBuilderSelectedIds.delete(id);
+      else outfitBuilderSelectedIds.add(id);
+      card.classList.toggle("selected");
+      refreshOutfitBuilderPreview();
+    });
+  });
+}
+
+function refreshOutfitBuilderPreview(){
+  const items = [...outfitBuilderSelectedIds].map(id=>wardrobeItems.find(w=>w.id===id)).filter(Boolean);
+  drawOutfitCollage($("outfitBuilderCanvas"), items);
+}
+
+$("openCreateOutfit").addEventListener("click", ()=>{
+  if(!activeWardrobePersonId){ setStatus("Add a family member first.", true); return; }
+  openOutfitBuilder(null);
+});
+$("cancelOutfitBuilder").addEventListener("click", ()=> $("outfitBuilderOverlay").classList.remove("open"));
+
+$("saveOutfitBuilderBtn").addEventListener("click", async ()=>{
+  const name = $("outfitBuilderName").value.trim();
+  if(!name){ showOutfitBuilderError("Give the outfit a name."); return; }
+  if(outfitBuilderSelectedIds.size===0){ showOutfitBuilderError("Pick at least one item."); return; }
+
+  const btn = $("saveOutfitBuilderBtn");
+  btn.disabled = true; btn.textContent = "Saving…";
+  const data = { memberId: activeWardrobePersonId, name, itemIds: [...outfitBuilderSelectedIds] };
+  try{
+    if(editingSavedOutfitId){
+      await updateDoc(doc(db,"savedOutfits",editingSavedOutfitId), data);
+    } else {
+      await addDoc(savedOutfitsCol, {...data, createdAt: serverTimestamp()});
+    }
+    $("outfitBuilderOverlay").classList.remove("open");
+    setStatus("");
+  }catch(err){
+    showOutfitBuilderError(err.message || "Couldn't save outfit — try again.");
+  } finally {
+    btn.disabled = false; btn.textContent = "Save";
+  }
+});
+
+$("deleteSavedOutfitBtn").addEventListener("click", async ()=>{
+  if(!editingSavedOutfitId) return;
+  if(!confirm("Delete this saved outfit? The individual wardrobe items stay — this only removes the combination.")) return;
+  try{
+    await deleteDoc(doc(db,"savedOutfits",editingSavedOutfitId));
+    $("outfitBuilderOverlay").classList.remove("open");
+  }catch(err){ setStatus("Couldn't delete: "+err.message, true); }
+});
+
+/* ---- "Use a saved outfit" picker, opened from a day's outfit slot ---- */
+function openSavedOutfitPicker(memberId, slotKey){
+  savedOutfitPickerContext = {memberId, slotKey};
+  const m = members.find(x=>x.id===memberId);
+  $("savedOutfitPickerTitle").textContent = m ? `${m.emoji||"🧑🏽"} ${m.name}'s outfits` : "Use a saved outfit";
+  renderSavedOutfitPickerGrid();
+  $("savedOutfitPickerOverlay").classList.add("open");
+}
+
+function renderSavedOutfitPickerGrid(){
+  const grid = $("savedOutfitPickerGrid");
+  if(!savedOutfitPickerContext){ grid.innerHTML=""; return; }
+  const outfits = savedOutfits.filter(o=>o.memberId===savedOutfitPickerContext.memberId);
+  if(outfits.length===0){
+    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No saved outfits for this person yet — build one from the Wardrobe tab first.</p>`;
+    return;
+  }
+  grid.innerHTML = outfits.map(o=>`
+    <div class="saved-outfit-card" data-apply-outfit="${o.id}">
+      <div class="collage-canvas-wrap"><canvas data-apply-canvas="${o.id}" width="300" height="300"></canvas></div>
+      <div class="so-name">${escapeHtml(o.name)}</div>
+      <div class="so-count">${(o.itemIds||[]).length} piece${(o.itemIds||[]).length!==1?"s":""}</div>
+    </div>`).join("");
+  grid.querySelectorAll("[data-apply-canvas]").forEach(canvas=>{
+    const outfit = outfits.find(o=>o.id===canvas.dataset.applyCanvas);
+    drawOutfitCollage(canvas, resolveOutfitItems(outfit));
+  });
+  grid.querySelectorAll("[data-apply-outfit]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      const outfit = outfits.find(o=>o.id===card.dataset.applyOutfit);
+      if(outfit) applySavedOutfitToSlot(outfit);
+    });
+  });
+}
+
+/* Adds every item from a saved outfit into the current slot, skipping any already present by itemId */
+async function applySavedOutfitToSlot(outfit){
+  if(!savedOutfitPickerContext) return;
+  const {memberId, slotKey} = savedOutfitPickerContext;
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const existing = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
+  const existingWardrobeIds = new Set(
+    existing.filter(i=>i && typeof i==="object" && i.type==="wardrobe").map(i=>i.itemId)
+  );
+  const itemsToAdd = resolveOutfitItems(outfit).filter(w=>!existingWardrobeIds.has(w.id));
+  const newEntries = itemsToAdd.map(w=>({
+    type:"wardrobe", itemId:w.id, name:w.name, photoURL:w.photoURL||null, category:w.category||"Other"
+  }));
+  const updated = [...existing, ...newEntries];
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId),{
+      [`days.${activeDayDate}.outfits.${memberId}.${slotKey}`]: updated
+    });
+    if(!activeTrip.days) activeTrip.days={};
+    if(!activeTrip.days[activeDayDate]) activeTrip.days[activeDayDate]={};
+    if(!activeTrip.days[activeDayDate].outfits) activeTrip.days[activeDayDate].outfits={};
+    if(!activeTrip.days[activeDayDate].outfits[memberId]) activeTrip.days[activeDayDate].outfits[memberId]={};
+    activeTrip.days[activeDayDate].outfits[memberId][slotKey] = updated;
+    $("savedOutfitPickerOverlay").classList.remove("open");
+    savedOutfitPickerContext = null;
+    renderDayOutfitsArea();
+  }catch(err){ setStatus("Couldn't apply outfit: "+err.message, true); }
+}
+
+$("closeSavedOutfitPicker").addEventListener("click", ()=>{
+  $("savedOutfitPickerOverlay").classList.remove("open");
+  savedOutfitPickerContext = null;
 });
 
 /* ---------- Phase 5: Per-Person Packing Lists ---------- */
@@ -2857,7 +3274,7 @@ async function togglePackedItem(memberId, itemKey, checked){
 $("backFromPersonPack").addEventListener("click", closePersonPackPage);
 
 /* Hook pack tab into inner tab switching */
-document.querySelectorAll(".inner-tab").forEach(tab=>{
+document.querySelectorAll("#tripDetailPage .inner-tab").forEach(tab=>{
   if(tab.dataset.inner==="pack"){
     tab.addEventListener("click", renderPackTab);
   }
