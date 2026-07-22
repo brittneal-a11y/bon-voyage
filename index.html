@@ -416,10 +416,23 @@
     padding:6px 12px;cursor:pointer;
   }
   .plan-day-btn:hover{border-color:var(--teal);background:#E8F1F0;}
-  .outfit-summary-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;}
-  .outfit-summary-pill{
-    font-size:11px;color:var(--ink-soft);background:#EFE8D9;
-    padding:3px 8px;border-radius:999px;
+
+  /* ---- Per-person, per-slot outfit status grid on day cards ---- */
+  .outfit-status-grid{margin-bottom:10px;display:flex;flex-direction:column;gap:6px;}
+  .outfit-status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .outfit-status-row .status-name{font-size:12px;font-weight:700;color:var(--ink);min-width:78px;flex-shrink:0;}
+  .outfit-status-row .status-pills{display:flex;gap:5px;flex-wrap:wrap;}
+  .status-pill{
+    font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;
+    white-space:nowrap;
+  }
+  .status-pill.filled{background:#E8F1F0;color:var(--teal-dark);}
+  .status-pill.empty{background:#F0EDEA;color:var(--ink-soft);}
+
+  /* ---- Shared/group essentials ---- */
+  .shared-badge{
+    font-size:11px;font-weight:700;background:#FEF3E2;color:#8A5A00;
+    padding:2px 8px;border-radius:999px;
   }
 
   /* ---- Day plan page (reuses trip-detail-page slide-in styles) ---- */
@@ -513,6 +526,9 @@
 
   <!-- TRIPS VIEW -->
   <section class="view active" id="view-trips">
+    <div class="field" style="margin-bottom:16px;">
+      <input type="text" id="tripSearchInput" placeholder="Search trips by name or location…" autocomplete="off">
+    </div>
     <div id="tripsList"></div>
   </section>
 
@@ -556,10 +572,16 @@
   </div>
 </div>
 
-<!-- NEW TRIP MODAL -->
+<!-- NEW/EDIT TRIP MODAL -->
 <div class="overlay" id="tripOverlay">
   <div class="modal">
-    <h2>New trip</h2>
+    <h2 id="tripModalHeading">New trip</h2>
+    <div class="field" id="carryOverField" style="display:none;background:#E8F1F0;border-radius:10px;padding:10px 12px;">
+      <label style="display:flex;align-items:flex-start;gap:8px;font-weight:500;color:var(--ink);">
+        <input type="checkbox" id="carryOverEssentials" checked style="width:17px;height:17px;margin-top:2px;accent-color:var(--teal);">
+        <span>Carry over essentials &amp; shared items from "<strong id="templateSourceName"></strong>"</span>
+      </label>
+    </div>
     <div class="field">
       <label>Trip name</label>
       <input type="text" id="tripName" placeholder="e.g. Meadow Vista Cabin">
@@ -608,6 +630,7 @@
       <h2 id="detailTripName"></h2>
       <div class="detail-meta" id="detailTripMeta"></div>
     </div>
+    <button class="weather-edit-btn" id="editTripBtn" title="Edit trip details">✏️</button>
   </div>
   <div class="detail-body">
     <div class="section-label" style="margin-top:16px;">Who's going</div>
@@ -642,6 +665,7 @@
     </div>
 
     <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--line);">
+      <button class="btn btn-ghost btn-block" id="useAsTemplateBtn" style="justify-content:center;margin-bottom:10px;">📋 Start a new trip from this one</button>
       <button class="btn btn-danger btn-block" id="deleteTripBtn" style="justify-content:center;">🗑️ Delete this trip</button>
     </div>
   </div>
@@ -782,6 +806,7 @@ const tripsCol = collection(db, "trips");
 
 const EMOJIS = ["🧑🏽","👩🏽","👨🏽","🧑🏾","👩🏾","👨🏾","🧒🏽","👧🏽","👦🏽","👶🏽","🧓🏽","🧔🏽","🐶","🐱","🐾"];
 const COLORS = ["#2E6F6B","#D98E3B","#B85C5C","#7C9070","#5C7CB8","#9B6CB8","#C77B3E"];
+const SHARED_ID = "__shared__"; // sentinel "member id" for trip-wide shared/group items
 
 let members = [];
 let trips = [];
@@ -795,6 +820,9 @@ let activeTripDetailId = null;
 let selectedLocation = null;
 let locDebounce = null;
 let selectedTripColor = COLORS[0];
+let tripSearchQuery = "";
+let editingTripId = null;      // set when tripOverlay is editing an existing trip
+let templateSourceTrip = null; // set when tripOverlay was opened "start from this trip"
 
 /* ---------- Location autocomplete ---------- */
 
@@ -856,6 +884,12 @@ document.querySelectorAll(".tab-btn").forEach(btn=>{
   });
 });
 
+/* ---------- Trip search ---------- */
+$("tripSearchInput").addEventListener("input", ()=>{
+  tripSearchQuery = $("tripSearchInput").value.trim().toLowerCase();
+  renderTrips();
+});
+
 /* ---------- Live data ---------- */
 onSnapshot(query(membersCol, orderBy("createdAt","asc")), (snap)=>{
   members = snap.docs.map(d=>({id:d.id, ...d.data()}));
@@ -899,8 +933,16 @@ function renderTrips(){
     list.innerHTML = `<div class="empty"><span class="glyph">🏷️</span><p>No trips yet. Tap the + button to plan your first one.</p></div>`;
     return;
   }
+  const q = tripSearchQuery;
+  const visible = q
+    ? trips.filter(t => (t.name||"").toLowerCase().includes(q) || (t.location||"").toLowerCase().includes(q))
+    : trips;
+  if(visible.length===0){
+    list.innerHTML = `<div class="empty"><span class="glyph">🔍</span><p>No trips match "${escapeHtml(tripSearchQuery)}".</p></div>`;
+    return;
+  }
   const today = new Date().toISOString().split("T")[0];
-  const sorted = [...trips].sort((a,b)=>{
+  const sorted = [...visible].sort((a,b)=>{
     const aD = a.startDate||"", bD = b.startDate||"";
     if(!aD && !bD) return 0;
     if(!aD) return 1;
@@ -1034,23 +1076,77 @@ async function removeMember(id){
 }
 
 /* ---------- Trip modal ---------- */
-$("fabNewTrip").addEventListener("click", openTripModal);
-$("cancelTrip").addEventListener("click", ()=> $("tripOverlay").classList.remove("open"));
+$("fabNewTrip").addEventListener("click", ()=>openTripModal());
+$("cancelTrip").addEventListener("click", ()=> {
+  $("tripOverlay").classList.remove("open");
+  editingTripId = null;
+  templateSourceTrip = null;
+});
 
-function openTripModal(){
-  $("tripName").value = "";
-  $("tripLocation").value = "";
-  selectedLocation = null;
+/**
+ * Opens the trip modal.
+ *  - openTripModal()            -> create a brand new blank trip
+ *  - openTripModal(editTrip)    -> edit an existing trip in place (name/location/dates/roster/color)
+ *  - openTripModal(null, tmplT) -> "start a new trip from this one": prefills name/location/roster/color
+ *                                   from tmplT, leaves dates blank, and offers to carry over essentials.
+ */
+function openTripModal(editTrip, tmplTrip){
+  editingTripId = editTrip ? editTrip.id : null;
+  templateSourceTrip = tmplTrip || null;
+  const source = editTrip || tmplTrip || null;
+
+  $("tripModalHeading").textContent = editTrip ? "Edit trip" : "New trip";
+  $("saveTrip").textContent = editTrip ? "Save changes" : "Create trip";
+
+  if(templateSourceTrip){
+    $("carryOverField").style.display = "";
+    $("templateSourceName").textContent = templateSourceTrip.name || "";
+    $("carryOverEssentials").checked = true;
+  } else {
+    $("carryOverField").style.display = "none";
+  }
+
+  $("tripName").value = editTrip ? (editTrip.name||"") : (tmplTrip ? `Copy of ${tmplTrip.name||""}` : "");
+
+  const locName = source ? (source.location||"") : "";
+  $("tripLocation").value = locName;
+  if(source && source.locationLat){
+    selectedLocation = { name: locName, lat: source.locationLat, lon: source.locationLon };
+  } else {
+    selectedLocation = null;
+  }
   $("locationSuggestions").className = "loc-suggestions";
   $("locationConfirmed").className = "loc-confirmed";
   $("locationConfirmed").textContent = "";
-  selectedTripColor = COLORS[0];
-  $("tripColorRow").querySelectorAll(".color-opt").forEach((b,i)=>b.classList.toggle("selected",i===0));
-  $("tripStart").value = "";
-  $("tripEnd").value = "";
+  if(selectedLocation){
+    $("locationConfirmed").className = "loc-confirmed show matched";
+    $("locationConfirmed").textContent = "✓ Matched — weather lookups will use this exact place";
+  }
+
+  selectedTripColor = source ? (source.color||COLORS[0]) : COLORS[0];
+  $("tripColorRow").querySelectorAll(".color-opt").forEach(b=>b.classList.toggle("selected", b.dataset.tc===selectedTripColor));
+
+  // Dates: carried over for edit, blank for template (new trip = new dates)
+  $("tripStart").value = editTrip ? (editTrip.startDate||"") : "";
+  $("tripEnd").value = editTrip ? (editTrip.endDate||"") : "";
+
+  // Roster + guests
   oneOffGuests = [];
   rosterSelections = {};
-  members.forEach(m=> rosterSelections[m.id] = true); // default everyone in
+  if(source){
+    const roster = source.roster||[];
+    members.forEach(m=> rosterSelections[m.id] = roster.some(r=>r.memberId===m.id));
+    if(editTrip){
+      // Only real edits keep the original one-off guests (templates don't re-invite past one-off guests)
+      roster.filter(r=>r.guestName).forEach((r,i)=>{
+        const id = "g"+Date.now()+"_"+i;
+        oneOffGuests.push({id, name:r.guestName});
+        rosterSelections["guest:"+id] = true;
+      });
+    }
+  } else {
+    members.forEach(m=> rosterSelections[m.id] = true); // default everyone in for a brand new trip
+  }
   renderRosterList();
   $("tripOverlay").classList.add("open");
 }
@@ -1118,16 +1214,39 @@ $("saveTrip").addEventListener("click", async ()=>{
     if(rosterSelections["guest:"+g.id]) roster.push({guestName:g.name});
   });
 
+  const tripFields = {
+    name, location, locationLat, locationLon, startDate, endDate, roster,
+    color: selectedTripColor,
+  };
+
   try{
-    await addDoc(tripsCol, {
-      name, location, locationLat, locationLon, startDate, endDate, roster,
-      color: selectedTripColor,
-      createdAt: serverTimestamp()
-    });
+    if(editingTripId){
+      // ---- Edit existing trip in place; leaves days/essentials/packed/weatherCache untouched ----
+      await setDoc(doc(db,"trips",editingTripId), tripFields, {merge:true});
+      if(activeTripDetailId===editingTripId && activeTrip){
+        Object.assign(activeTrip, tripFields);
+        refreshTripDetailHeader();
+        renderDayCards();
+      }
+    } else {
+      // ---- Create new trip, optionally seeded from a template ----
+      const newDocRef = await addDoc(tripsCol, {...tripFields, createdAt: serverTimestamp()});
+      if(templateSourceTrip && $("carryOverEssentials").checked){
+        const newMemberIds = new Set(roster.filter(r=>r.memberId).map(r=>r.memberId));
+        const copiedEssentials = (templateSourceTrip.essentials||[])
+          .filter(e => e.memberId===SHARED_ID || (e.memberId && newMemberIds.has(e.memberId)))
+          .map(e => ({...e, id: makeId()}));
+        if(copiedEssentials.length){
+          await setDoc(doc(db,"trips",newDocRef.id), {essentials: copiedEssentials}, {merge:true});
+        }
+      }
+    }
     $("tripOverlay").classList.remove("open");
+    editingTripId = null;
+    templateSourceTrip = null;
     setStatus("");
   }catch(err){
-    setStatus("Couldn't create trip: "+err.message, true);
+    setStatus("Couldn't save trip: "+err.message, true);
   }
 });
 
@@ -1204,12 +1323,11 @@ let activeTrip = null;
 let overrideDate = null;
 let selectedCond = ALL_CONDITIONS[0];
 
-function openTripDetail(tripId){
-  const t = trips.find(x=>x.id===tripId);
+/* Refreshes the trip detail header, roster pills, and weather-fetch note from activeTrip.
+   Called on initial open AND after an in-place edit, so it never trusts a stale local `t`. */
+function refreshTripDetailHeader(){
+  const t = activeTrip;
   if(!t) return;
-  activeTripDetailId = tripId;
-  activeTrip = t;
-  fetchedWeather = t.weatherCache || {}; // load persisted cache
 
   $("detailTripName").textContent = t.name;
   $("detailTripMeta").textContent = [t.location, formatRange(t.startDate,t.endDate)].filter(Boolean).join(" · ");
@@ -1249,7 +1367,16 @@ function openTripDetail(tripId){
   $("weatherFetchNote").textContent = fetchNote;
   $("fetchWeatherBtn").style.display = canFetch ? "inline-flex" : "none";
   $("fetchWeatherBtn").textContent = hasCachedWeather ? "⛅ Refresh weather" : "⛅ Fetch weather";
+}
 
+function openTripDetail(tripId){
+  const t = trips.find(x=>x.id===tripId);
+  if(!t) return;
+  activeTripDetailId = tripId;
+  activeTrip = t;
+  fetchedWeather = t.weatherCache || {}; // load persisted cache
+
+  refreshTripDetailHeader();
   renderDayCards();
   $("tripDetailPage").classList.add("open");
   $("fabNewTrip").style.display = "none";
@@ -1264,6 +1391,15 @@ function closeTripDetail(){
 }
 
 $("backFromDetail").addEventListener("click", closeTripDetail);
+$("editTripBtn").addEventListener("click", ()=>{
+  if(activeTrip) openTripModal(activeTrip);
+});
+$("useAsTemplateBtn").addEventListener("click", ()=>{
+  if(!activeTrip) return;
+  const source = activeTrip;
+  closeTripDetail();
+  openTripModal(null, source);
+});
 $("deleteTripBtn").addEventListener("click", async ()=>{
   if(!activeTripDetailId) return;
   if(!confirm("Delete this trip? This can't be undone.")) return;
@@ -1292,6 +1428,34 @@ $("fetchWeatherBtn").addEventListener("click", async ()=>{
     setStatus("Couldn't fetch weather — check your connection.", true);
   }
 });
+
+/* Per-person, per-slot outfit status: e.g. "Brittney: Standard ✓  Swimming ○".
+   Replaces the old item-count pills — this tells you at a glance whether each
+   slot for each person has *anything* planned yet, not how many items it has. */
+function buildOutfitStatusHtml(humanRoster, activities, outfits){
+  if(humanRoster.length===0) return "";
+  const outfitActivities = (activities||[]).filter(a=>a.requiresOutfit);
+  const slots = [
+    {key:"standard", label:"Standard"},
+    ...outfitActivities.map(a=>({key:`act_${a.id}`, label:a.name}))
+  ];
+  const rows = humanRoster.map(r=>{
+    const m = members.find(x=>x.id===r.memberId);
+    if(!m) return "";
+    const memberOutfits = outfits[m.id]||{};
+    const pills = slots.map(slot=>{
+      const items = memberOutfits[slot.key]||[];
+      const filled = Array.isArray(items) && items.length>0;
+      return `<span class="status-pill ${filled?"filled":"empty"}">${filled?"✓":"○"} ${escapeHtml(slot.label)}</span>`;
+    }).join("");
+    return `<div class="outfit-status-row">
+      <span class="status-name">${m.emoji||"🧑🏽"} ${escapeHtml(m.name)}</span>
+      <div class="status-pills">${pills}</div>
+    </div>`;
+  }).join("");
+  if(!rows) return "";
+  return `<div class="outfit-status-grid">${rows}</div>`;
+}
 
 function renderDayCards(){
   const t = activeTrip;
@@ -1339,14 +1503,8 @@ function renderDayCards(){
       `<span class="activity-chip ${a.requiresOutfit?'has-outfit':''}">${a.requiresOutfit?"👗 ":""}${escapeHtml(a.name)}</span>`
     ).join("");
 
-    // Outfit item count per person
-    const outfitSummary = humanRoster.map(r=>{
-      const m = members.find(x=>x.id===r.memberId);
-      if(!m) return "";
-      const memberOutfits = outfits[m.id]||{};
-      const total = Object.values(memberOutfits).reduce((s,items)=>s+(Array.isArray(items)?items.length:0),0);
-      return total>0 ? `<span class="outfit-summary-pill">${m.emoji||"🧑🏽"} ${total} item${total!==1?"s":""}</span>` : "";
-    }).join("");
+    // Per-person, per-slot outfit status grid (Standard + one per outfit-required activity)
+    const outfitStatusHtml = buildOutfitStatusHtml(humanRoster, activities, outfits);
 
     return `
       <div class="day-card">
@@ -1360,7 +1518,7 @@ function renderDayCards(){
         </div>
         <div class="day-card-body">
           ${activities.length>0?`<div class="day-activity-row">${actChips}</div>`:""}
-          ${outfitSummary?`<div class="outfit-summary-pills">${outfitSummary}</div>`:""}
+          ${outfitStatusHtml}
           <button class="plan-day-btn" data-plan-date="${date}">👗 Plan outfits &amp; activities →</button>
         </div>
       </div>`;
@@ -1713,6 +1871,7 @@ document.querySelectorAll(".overlay").forEach(o=>{
 
 const HUMAN_CATEGORIES = ["Medications","Toiletries","Electronics","Clothing","Accessories","Documents","Other"];
 const PET_CATEGORIES   = ["Food","Leash & Collar","Bed","Toys","Medications","Grooming","Other"];
+const SHARED_CATEGORIES = ["Snacks & Food","Towels","Beach & Pool","Sports & Gear","Entertainment","Other"];
 
 const CATEGORY_COLORS = {
   "Medications":   {bg:"#FDECEA", text:"#9B2B2B"},
@@ -1726,6 +1885,11 @@ const CATEGORY_COLORS = {
   "Bed":           {bg:"#EEE8FD", text:"#5B35A8"},
   "Toys":          {bg:"#FDEEF5", text:"#8A1A5C"},
   "Grooming":      {bg:"#E8F4FD", text:"#1A5C8A"},
+  "Snacks & Food": {bg:"#FEF3E2", text:"#8A5A00"},
+  "Towels":        {bg:"#E8F4FD", text:"#1A5C8A"},
+  "Beach & Pool":  {bg:"#E8F1F0", text:"#22534F"},
+  "Sports & Gear": {bg:"#EEE8FD", text:"#5B35A8"},
+  "Entertainment": {bg:"#FDEEF5", text:"#8A1A5C"},
   "Other":         {bg:"#F0EDEA", text:"#6B5E52"},
 };
 
@@ -1747,7 +1911,7 @@ document.querySelectorAll(".inner-tab").forEach(tab=>{
   });
 });
 
-/* ---- Render essentials grouped by roster member ---- */
+/* ---- Render essentials: shared block first, then grouped by roster member ---- */
 function renderEssentials(){
   const t = activeTrip;
   if(!t){ $("essentialsList").innerHTML=""; return; }
@@ -1757,7 +1921,15 @@ function renderEssentials(){
     $("essentialsList").innerHTML=`<div class="empty" style="padding:24px 0;"><span class="glyph">🎒</span><p>No essentials yet.<br>Add medications, toiletries, gear, and more.</p></div>`;
     return;
   }
-  const html=roster.map(r=>{
+  let html = "";
+  const sharedItems = essentials.filter(e=>e.memberId===SHARED_ID);
+  if(sharedItems.length){
+    html += `<div class="essentials-person-block">
+      <div class="essentials-person-header"><span class="shared-badge">🎉 Shared (Trip-wide)</span></div>
+      ${sharedItems.map(e=>`<div class="essential-item-row"><span class="ess-cat" style="${catStyle(e.category)}">${escapeHtml(e.category)}</span><span class="ess-name">${escapeHtml(e.item)}</span><button class="remove-ess-btn" data-ess-id="${e.id}">×</button></div>`).join("")}
+    </div>`;
+  }
+  html += roster.map(r=>{
     const m=members.find(x=>x.id===r.memberId);
     const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
     if(!name) return "";
@@ -1790,13 +1962,15 @@ $("cancelEssential").addEventListener("click", ()=> $("addEssentialOverlay").cla
 function openAddEssentialModal(){
   const t = activeTrip;
   const roster = t.roster||[];
-  $("essentialMember").innerHTML = roster.map(r=>{
+  const sharedOption = `<option value="shared" data-type="shared">🎉 Shared (Trip-wide)</option>`;
+  const rosterOptions = roster.map(r=>{
     const m=members.find(x=>x.id===r.memberId);
     const name=m?m.name:r.guestName;
     const val=m?`member:${m.id}`:`guest:${r.guestName}`;
     if(!name) return "";
     return `<option value="${val}" data-type="${m?m.type:'human'}">${m?(m.emoji+" "):""}${escapeHtml(name)}</option>`;
   }).join("");
+  $("essentialMember").innerHTML = sharedOption + rosterOptions;
   updateEssentialCategories();
   $("essentialItem").value="";
   $("addEssentialOverlay").classList.add("open");
@@ -1807,7 +1981,7 @@ function updateEssentialCategories(){
   const sel=$("essentialMember");
   const chosen=sel.options[sel.selectedIndex];
   const type=chosen?chosen.dataset.type:"human";
-  const cats=type==="pet"?PET_CATEGORIES:HUMAN_CATEGORIES;
+  const cats = type==="shared" ? SHARED_CATEGORIES : type==="pet" ? PET_CATEGORIES : HUMAN_CATEGORIES;
   $("essentialCategory").innerHTML=cats.map(c=>`<option>${c}</option>`).join("");
 }
 
@@ -1822,8 +1996,18 @@ $("saveEssential").addEventListener("click", async ()=>{
   const category=$("essentialCategory").value;
   const val=chosen.value;
   const entry={id:makeId(),category,item};
-  if(val.startsWith("member:")) entry.memberId=val.slice(7);
+  if(val==="shared") entry.memberId=SHARED_ID;
+  else if(val.startsWith("member:")) entry.memberId=val.slice(7);
   else entry.guestName=val.slice(6);
+
+  // Duplicate detection: same owner (person/guest/shared) + same item name, case-insensitive
+  const ownerKey = entry.memberId || entry.guestName;
+  const dup = (activeTrip.essentials||[]).some(e=>{
+    const eOwner = e.memberId || e.guestName;
+    return eOwner===ownerKey && e.item.trim().toLowerCase()===item.toLowerCase();
+  });
+  if(dup && !confirm(`"${item}" is already on this list. Add it again anyway?`)) return;
+
   const updated=[...(activeTrip.essentials||[]),entry];
   try{
     await updateDoc(doc(db,"trips",activeTripDetailId),{essentials:updated});
@@ -1892,10 +2076,11 @@ function calcProgress(trip, memberId){
 function calcTripProgress(trip){
   const roster=trip.roster||[];
   let totalAll=0, packedAll=0;
-  roster.forEach(r=>{
-    const m=members.find(x=>x.id===r.memberId);
-    if(!m) return;
-    const {packed,total}=calcProgress(trip,m.id);
+  const memberIds = roster.map(r=>r.memberId).filter(Boolean);
+  const hasShared = (trip.essentials||[]).some(e=>e.memberId===SHARED_ID);
+  if(hasShared) memberIds.push(SHARED_ID);
+  memberIds.forEach(id=>{
+    const {packed,total}=calcProgress(trip,id);
     totalAll+=total; packedAll+=packed;
   });
   return {packed:packedAll,total:totalAll,pct:totalAll>0?Math.round(packedAll/totalAll*100):0};
@@ -1914,11 +2099,23 @@ function renderPackTab(){
       </div>
     </div>`;
   const roster=t.roster||[];
-  if(!roster.length){
+  const hasShared = (t.essentials||[]).some(e=>e.memberId===SHARED_ID);
+  if(!roster.length && !hasShared){
     $("packOverview").innerHTML=`<p style="font-size:13px;color:var(--ink-soft);">No one on the roster yet.</p>`;
     return;
   }
-  $("packOverview").innerHTML=roster.map(r=>{
+  let html = "";
+  if(hasShared){
+    const {packed,total,pct}=calcProgress(t,SHARED_ID);
+    const label=total===0?"No items planned yet":`${packed} of ${total} packed`;
+    html += `<div class="pack-person-card" data-pack-m="${SHARED_ID}">
+      <div class="avatar" style="background:#FEF3E222;color:#8A5A00;width:42px;height:42px;font-size:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">🎉</div>
+      <div class="pack-info"><div class="pack-name">Shared (Trip-wide)</div><div class="pack-prog-label">${label}</div>
+        ${total>0?`<div class="progress-bar-track"><div class="progress-bar-fill ${pct===100?'complete':''}" style="width:${pct}%"></div></div>`:""}
+      </div><div class="pack-chevron">›</div>
+    </div>`;
+  }
+  html += roster.map(r=>{
     const m=members.find(x=>x.id===r.memberId);
     const name=m?m.name:r.guestName; const emoji=m?(m.emoji||"🧑🏽"):"👤"; const color=m?m.color:"#B0A693";
     if(!name) return "";
@@ -1931,16 +2128,23 @@ function renderPackTab(){
       </div><div class="pack-chevron">›</div>
     </div>`;
   }).join("");
+  $("packOverview").innerHTML = html;
   $("packOverview").querySelectorAll("[data-pack-m]").forEach(card=>{
     card.addEventListener("click",()=>{ if(card.dataset.packM) openPersonPackPage(card.dataset.packM); });
   });
 }
 
 function openPersonPackPage(memberId){
-  const m=members.find(x=>x.id===memberId);
-  if(!m) return;
+  let label;
+  if(memberId===SHARED_ID){
+    label = "🎉 Shared (Trip-wide)";
+  } else {
+    const m=members.find(x=>x.id===memberId);
+    if(!m) return;
+    label = `${m.emoji||"🧑🏽"} ${m.name}`;
+  }
   activePackMemberId=memberId;
-  $("personPackName").textContent=`${m.emoji||"🧑🏽"} ${m.name}`;
+  $("personPackName").textContent=label;
   renderPersonPackPage();
   $("personPackPage").classList.add("open");
 }
