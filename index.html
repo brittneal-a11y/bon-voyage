@@ -365,7 +365,20 @@
   .wardrobe-card{
     background:var(--canvas-raised);border:1px solid var(--line);border-radius:12px;
     overflow:hidden;cursor:pointer;transition:transform .12s, box-shadow .12s;
+    position:relative;
   }
+  .wc-needs-badge{
+    position:absolute;top:6px;left:6px;z-index:2;
+    font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    background:var(--amber);color:#fff;padding:3px 7px;border-radius:999px;
+  }
+  .needs-details-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:#FEF3E2;color:#8A5A00;border-radius:10px;padding:9px 12px;
+    font-size:13px;font-weight:600;margin-bottom:12px;cursor:pointer;
+  }
+  .needs-details-bar .ndb-toggle{font-size:12px;font-weight:700;text-decoration:underline;white-space:nowrap;}
+  .bulk-progress-label{font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
   .wardrobe-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
   .wardrobe-card .wc-photo{
     width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);display:block;
@@ -428,6 +441,27 @@
     width:22px;height:22px;border-radius:50%;background:var(--teal);color:#fff;
     display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
   }
+
+  /* ---- Outfit flipbook ---- */
+  .flipbook-nav{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:18px;padding-top:16px;border-top:1px solid var(--line);
+  }
+  .flipbook-nav #flipbookPageIndicator{font-size:13px;color:var(--ink-soft);font-weight:600;}
+  .flipbook-nav button:disabled{opacity:.35;cursor:default;}
+  .flipbook-card-header{margin-bottom:14px;}
+  .flipbook-card-header h3{font-size:19px;color:var(--ink);}
+  .flipbook-card-header .fb-meta{font-size:13px;color:var(--ink-soft);margin-top:2px;}
+  .flipbook-block{
+    background:var(--canvas-raised);border:1px solid var(--line);border-radius:var(--radius);
+    padding:14px;margin-bottom:14px;
+  }
+  .flipbook-block-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-weight:700;font-size:14px;}
+  .flipbook-slot{margin-bottom:12px;}
+  .flipbook-slot:last-child{margin-bottom:0;}
+  .flipbook-slot-label{font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;
+    text-transform:uppercase;letter-spacing:.06em;}
+  .flipbook-empty{font-size:13px;color:var(--ink-soft);font-style:italic;}
   .essential-item-row .remove-ess-btn{
     background:none;border:none;cursor:pointer;color:var(--ink-soft);
     font-size:15px;padding:2px 4px;border-radius:4px;
@@ -646,8 +680,14 @@
     </nav>
 
     <div class="inner-panel active" id="wardrobe-panel-items">
+      <div id="wardrobeNeedsDetailsBar" style="display:none;"></div>
+      <div id="bulkUploadProgress" style="display:none;margin-bottom:12px;"></div>
       <div id="wardrobeGrid" style="margin-top:14px;"></div>
-      <button class="btn btn-ghost btn-block" id="openAddWardrobeItem" style="margin-top:14px;">+ Add clothing item</button>
+      <div style="display:flex;gap:8px;margin-top:14px;">
+        <button class="btn btn-ghost" id="openAddWardrobeItem" style="flex:1;">+ Add one item</button>
+        <button class="btn btn-ghost" id="openBulkUploadWardrobe" style="flex:1;">📸 Bulk upload photos</button>
+      </div>
+      <input type="file" id="bulkUploadInput" accept="image/*" multiple style="display:none;">
     </div>
 
     <div class="inner-panel" id="wardrobe-panel-outfits">
@@ -767,6 +807,7 @@
         <div class="weather-fetch-note" id="weatherFetchNote" style="font-size:12px;color:var(--ink-soft);"></div>
         <button class="btn btn-ghost" id="fetchWeatherBtn" style="padding:7px 12px;font-size:13px;">⛅ Fetch weather</button>
       </div>
+      <button class="btn btn-ghost btn-block" id="openFlipbookBtn" style="margin-bottom:14px;">📖 View outfit flipbook</button>
       <div id="dayCards"></div>
     </div>
 
@@ -952,6 +993,29 @@
   </div>
 </div>
 
+<!-- OUTFIT FLIPBOOK PAGE (browse planned outfits by day or by person) -->
+<div class="trip-detail-page" id="outfitFlipbookPage" style="z-index:46;">
+  <div class="detail-header">
+    <button class="back-btn" id="backFromFlipbook">←</button>
+    <div class="detail-header-text">
+      <h2>Outfit Flipbook</h2>
+      <div class="detail-meta" id="flipbookSubtitle"></div>
+    </div>
+  </div>
+  <div class="detail-body" style="padding-top:14px;">
+    <div class="type-toggle" style="margin-bottom:16px;">
+      <button type="button" class="flipbook-mode-opt active" data-flipbook-mode="day">📅 By Day</button>
+      <button type="button" class="flipbook-mode-opt" data-flipbook-mode="person">🧑 By Person</button>
+    </div>
+    <div id="flipbookCardArea"></div>
+    <div class="flipbook-nav">
+      <button class="btn btn-ghost" id="flipbookPrevBtn">‹ Prev</button>
+      <span id="flipbookPageIndicator"></span>
+      <button class="btn btn-ghost" id="flipbookNextBtn">Next ›</button>
+    </div>
+  </div>
+</div>
+
 <!-- DAY PLAN PAGE (slides over trip detail) -->
 <div class="trip-detail-page" id="dayPlanPage" style="z-index:45;">
   <div class="detail-header">
@@ -1085,6 +1149,7 @@ let savedOutfits = [];               // reusable named outfits: {id, memberId, n
 let editingSavedOutfitId = null;     // set when the outfit builder modal is editing rather than adding
 let outfitBuilderSelectedIds = new Set(); // wardrobe item ids currently checked in the outfit builder
 let savedOutfitPickerContext = null; // {memberId, slotKey} while the outfit-slot "use saved outfit" picker is open
+let wardrobeShowOnlyNeedsDetails = false; // filters the Items grid to just bulk-imported items awaiting cleanup
 
 /* ---------- Location autocomplete ---------- */
 
@@ -1938,6 +2003,17 @@ async function removeActivityFromDay(index){
 }
 
 /* ---- Render outfit slots per person ---- */
+/* Shared by the day plan page and the outfit flipbook: builds the slot list for a given day
+   (Standard + one per outfit-required activity planned that day). */
+function getSlotsForDay(trip, date){
+  const dayData = (trip.days||{})[date]||{};
+  const outfitActivities = (dayData.activities||[]).filter(a=>a.requiresOutfit);
+  return [
+    {key:"standard", label:"Standard Outfit", icon:""},
+    ...outfitActivities.map(a=>({key:`act_${a.id}`, label:`${a.name} Outfit`, icon:"👗 "}))
+  ];
+}
+
 function renderDayOutfitsArea(){
   const t = activeTrip;
   const humanRoster = (t.roster||[]).filter(r=>{
@@ -1949,8 +2025,6 @@ function renderDayOutfitsArea(){
     return;
   }
   const dayData = (t.days||{})[activeDayDate]||{};
-  const activities = dayData.activities||[];
-  const outfitActivities = activities.filter(a=>a.requiresOutfit);
   const outfits = dayData.outfits||{};
 
   $("dayOutfitsArea").innerHTML = humanRoster.map(r=>{
@@ -1959,10 +2033,7 @@ function renderDayOutfitsArea(){
     const memberOutfits = outfits[m.id]||{};
 
     // Build slot list: standard + one per outfit-required activity
-    const slots = [
-      {key:"standard", label:"Standard Outfit", icon:""},
-      ...outfitActivities.map(a=>({key:`act_${a.id}`, label:`${a.name} Outfit`, icon:"👗 "}))
-    ];
+    const slots = getSlotsForDay(t, activeDayDate);
 
     const slotsHtml = slots.map(slot=>{
       const items = memberOutfits[slot.key]||[];
@@ -2704,15 +2775,39 @@ function resolveOutfitItems(outfit){
 }
 
 function renderWardrobeGrid(){
-  const items = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  const allItems = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  const needsDetailsCount = allItems.filter(w=>w.needsDetails).length;
+
+  const bar = $("wardrobeNeedsDetailsBar");
+  if(needsDetailsCount===0){
+    bar.style.display = "none";
+    wardrobeShowOnlyNeedsDetails = false;
+  } else {
+    bar.style.display = "";
+    bar.innerHTML = `<div class="needs-details-bar">
+      <span>🏷️ ${needsDetailsCount} item${needsDetailsCount!==1?"s":""} need${needsDetailsCount===1?"s":""} details</span>
+      <span class="ndb-toggle">${wardrobeShowOnlyNeedsDetails ? "Show all" : "Show only these"}</span>
+    </div>`;
+    bar.querySelector(".needs-details-bar").addEventListener("click", ()=>{
+      wardrobeShowOnlyNeedsDetails = !wardrobeShowOnlyNeedsDetails;
+      renderWardrobeGrid();
+    });
+  }
+
+  const items = wardrobeShowOnlyNeedsDetails ? allItems.filter(w=>w.needsDetails) : allItems;
   const grid = $("wardrobeGrid");
-  if(items.length===0){
+  if(allItems.length===0){
     grid.innerHTML = `<div class="empty" style="padding:28px 0;"><span class="glyph">📷</span><p>No clothing items yet.<br>Add a few photos to start building outfits.</p></div>`;
+    return;
+  }
+  if(items.length===0){
+    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">All caught up — nothing needs details.</p>`;
     return;
   }
   grid.className = "wardrobe-grid";
   grid.innerHTML = items.map(w=>`
     <div class="wardrobe-card" data-wardrobe-item="${w.id}">
+      ${w.needsDetails ? `<span class="wc-needs-badge">Needs details</span>` : ""}
       ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
       <div class="wc-name">${escapeHtml(w.name)}</div>
       <div class="wc-cat">${escapeHtml(w.category||"")}</div>
@@ -2765,6 +2860,72 @@ function openWardrobeItemModal(item){
 
 $("openAddWardrobeItem").addEventListener("click", ()=> openWardrobeItemModal(null));
 $("cancelWardrobeItem").addEventListener("click", ()=> $("wardrobeItemOverlay").classList.remove("open"));
+
+/* ---- Bulk photo upload: select many photos at once for the active person; each becomes a
+   wardrobe item flagged "needs details" so name/category can be filled in later without
+   blocking the import. ---- */
+$("openBulkUploadWardrobe").addEventListener("click", ()=>{
+  if(!activeWardrobePersonId){ setStatus("Add a family member first.", true); return; }
+  $("bulkUploadInput").click();
+});
+
+$("bulkUploadInput").addEventListener("change", async ()=>{
+  const files = Array.from($("bulkUploadInput").files || []);
+  $("bulkUploadInput").value = ""; // reset so re-selecting the same files still fires change
+  if(files.length===0) return;
+  await runBulkWardrobeUpload(files, activeWardrobePersonId);
+});
+
+async function runBulkWardrobeUpload(files, memberId){
+  const total = files.length;
+  const progressBox = $("bulkUploadProgress");
+  progressBox.style.display = "";
+  let done = 0, succeeded = 0, failed = 0;
+
+  function updateProgress(){
+    const pct = Math.round(done/total*100);
+    progressBox.innerHTML = `
+      <div class="bulk-progress-label">Uploading ${done} of ${total}…</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%"></div></div>`;
+  }
+  updateProgress();
+
+  async function uploadOne(file){
+    try{
+      const blob = await resizeImageFile(file);
+      const storagePath = `wardrobe/${memberId}/${makeId()}_${Date.now()}.jpg`;
+      const fileRef = storageRef(storage, storagePath);
+      await withTimeout(uploadBytes(fileRef, blob), 20000, "Photo upload");
+      const photoURL = await withTimeout(getDownloadURL(fileRef), 15000, "Fetching photo URL");
+      await addDoc(wardrobeCol, {
+        memberId, name:"Untitled item", category:"Other", photoURL, storagePath,
+        needsDetails: true, createdAt: serverTimestamp()
+      });
+      succeeded++;
+    }catch(err){
+      failed++;
+    } finally {
+      done++;
+      updateProgress();
+    }
+  }
+
+  // Small concurrency pool so a big batch doesn't run fully sequentially, without overwhelming the browser
+  const CONCURRENCY = 3;
+  let nextIdx = 0;
+  async function worker(){
+    while(nextIdx < files.length){
+      const file = files[nextIdx++];
+      await uploadOne(file);
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(CONCURRENCY, files.length)}, worker));
+
+  progressBox.innerHTML = `<div class="bulk-progress-label">
+    ✅ ${succeeded} uploaded${failed>0?`, ${failed} failed`:""} — look for the "Needs details" tag to finish filling them in.
+  </div>`;
+  setTimeout(()=>{ progressBox.style.display = "none"; }, 5000);
+}
 
 $("wardrobePhotoPreviewWrap").addEventListener("click", ()=> $("wardrobePhotoInput").click());
 $("wardrobePhotoInput").addEventListener("change", async ()=>{
@@ -2831,7 +2992,7 @@ $("saveWardrobeItemBtn").addEventListener("click", async ()=>{
       storagePath = existing.storagePath || null;
     }
 
-    const data = { memberId, name, category, photoURL, storagePath };
+    const data = { memberId, name, category, photoURL, storagePath, needsDetails:false };
     if(editingWardrobeItemId){
       await withTimeout(updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), data), 15000, "Saving to database");
     } else {
@@ -3049,6 +3210,194 @@ $("closeSavedOutfitPicker").addEventListener("click", ()=>{
   $("savedOutfitPickerOverlay").classList.remove("open");
   savedOutfitPickerContext = null;
 });
+
+/* ---------- Outfit Flipbook: browse planned outfits by day or by person ---------- */
+
+let flipbookMode = "day";  // "day" or "person"
+let flipbookIndex = 0;
+let flipbookList = [];     // current list being paged through: dates (strings) or member objects
+
+function openOutfitFlipbook(){
+  flipbookMode = "day";
+  flipbookIndex = 0;
+  document.querySelectorAll(".flipbook-mode-opt").forEach(b=>b.classList.toggle("active", b.dataset.flipbookMode==="day"));
+  renderFlipbook();
+  $("outfitFlipbookPage").classList.add("open");
+}
+function closeOutfitFlipbook(){
+  $("outfitFlipbookPage").classList.remove("open");
+}
+$("openFlipbookBtn").addEventListener("click", openOutfitFlipbook);
+$("backFromFlipbook").addEventListener("click", closeOutfitFlipbook);
+
+document.querySelectorAll(".flipbook-mode-opt").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    flipbookMode = b.dataset.flipbookMode;
+    flipbookIndex = 0;
+    document.querySelectorAll(".flipbook-mode-opt").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    renderFlipbook();
+  });
+});
+
+function flipbookHumanRoster(){
+  const t = activeTrip;
+  return (t.roster||[])
+    .filter(r=>{ const m=members.find(x=>x.id===r.memberId); return m && m.type==="human"; })
+    .map(r=> members.find(x=>x.id===r.memberId))
+    .filter(Boolean);
+}
+
+/* Does this person have any outfit items planned on this date, in any slot? */
+function personHasOutfitOnDate(trip, memberId, date){
+  const dayData = (trip.days||{})[date]||{};
+  const memberOutfits = (dayData.outfits||{})[memberId]||{};
+  return Object.values(memberOutfits).some(items=> Array.isArray(items) && items.length>0);
+}
+
+function renderFlipbook(){
+  const t = activeTrip;
+  const allDays = generateDays(t.startDate, t.endDate);
+  const humans = flipbookHumanRoster();
+
+  if(flipbookMode==="day"){
+    flipbookList = allDays;
+    $("flipbookSubtitle").textContent = "By Day";
+  } else {
+    flipbookList = humans;
+    $("flipbookSubtitle").textContent = "By Person";
+  }
+
+  if(flipbookList.length===0){
+    $("flipbookCardArea").innerHTML = flipbookMode==="day"
+      ? `<div class="empty"><span class="glyph">📅</span><p>Add trip dates first to see days here.</p></div>`
+      : `<div class="empty"><span class="glyph">🧑</span><p>No family members on this trip's roster.</p></div>`;
+    $("flipbookPageIndicator").textContent = "";
+    $("flipbookPrevBtn").disabled = true;
+    $("flipbookNextBtn").disabled = true;
+    return;
+  }
+
+  flipbookIndex = Math.max(0, Math.min(flipbookIndex, flipbookList.length-1));
+  $("flipbookPrevBtn").disabled = flipbookIndex===0;
+  $("flipbookNextBtn").disabled = flipbookIndex===flipbookList.length-1;
+
+  if(flipbookMode==="day"){
+    const date = flipbookList[flipbookIndex];
+    $("flipbookPageIndicator").textContent = `Day ${flipbookIndex+1} of ${flipbookList.length}`;
+    renderFlipbookDayCard(date, humans);
+  } else {
+    const m = flipbookList[flipbookIndex];
+    $("flipbookPageIndicator").textContent = `${flipbookIndex+1} of ${flipbookList.length}`;
+    renderFlipbookPersonCard(m, allDays);
+  }
+}
+
+/* Builds the HTML for one person's slot list on a given date — a collage canvas for slots
+   with wardrobe photos, or a simple text list for slots that only have legacy typed items. */
+function buildFlipbookSlotsHtml(memberId, date, slots, memberOutfits){
+  const slotsWithItems = slots.filter(slot => (memberOutfits[slot.key]||[]).length>0);
+  if(slotsWithItems.length===0) return null;
+  return slotsWithItems.map(slot=>{
+    const items = memberOutfits[slot.key]||[];
+    const photoItems = items.filter(i=>i && typeof i==="object" && i.type==="wardrobe");
+    const textItems = items.filter(i=>typeof i==="string");
+    const body = photoItems.length>0
+      ? `<div class="collage-canvas-wrap" style="max-width:260px;" data-fb-collage="${memberId}|${date}|${slot.key}"></div>`
+      : `<div>${textItems.map(name=>`<div class="outfit-item-row"><span class="item-bullet">·</span><span class="item-name">${escapeHtml(name)}</span></div>`).join("")}</div>`;
+    return `<div class="flipbook-slot">
+      <div class="flipbook-slot-label">${slot.icon}${escapeHtml(slot.label)}</div>
+      ${body}
+    </div>`;
+  }).join("");
+}
+
+function renderFlipbookDayCard(date, humans){
+  const t = activeTrip;
+  const d = new Date(date+"T00:00:00");
+  const dayLabel = d.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+  const slots = getSlotsForDay(t, date);
+  const dayData = (t.days||{})[date]||{};
+  const outfits = dayData.outfits||{};
+
+  let html = `<div class="flipbook-card-header"><h3>${escapeHtml(dayLabel)}</h3></div>`;
+  if(humans.length===0){
+    html += `<p class="flipbook-empty">No family members on this trip's roster.</p>`;
+  } else {
+    html += humans.map(m=>{
+      const memberOutfits = outfits[m.id]||{};
+      const slotsHtml = buildFlipbookSlotsHtml(m.id, date, slots, memberOutfits);
+      return `<div class="flipbook-block">
+        <div class="flipbook-block-header">
+          <div class="avatar" style="background:${m.color}22;color:${m.color};width:28px;height:28px;font-size:15px;border-radius:50%;display:flex;align-items:center;justify-content:center;">${m.emoji||"🧑🏽"}</div>
+          ${escapeHtml(m.name)}
+        </div>
+        ${slotsHtml || `<p class="flipbook-empty">Nothing planned yet</p>`}
+      </div>`;
+    }).join("");
+  }
+  $("flipbookCardArea").innerHTML = html;
+  drawFlipbookCollages();
+}
+
+function renderFlipbookPersonCard(m, allDays){
+  const t = activeTrip;
+  const daysWithOutfits = allDays.filter(date => personHasOutfitOnDate(t, m.id, date));
+
+  let html = `<div class="flipbook-card-header">
+    <h3>${m.emoji||"🧑🏽"} ${escapeHtml(m.name)}</h3>
+  </div>`;
+  if(daysWithOutfits.length===0){
+    html += `<p class="flipbook-empty">Nothing planned yet for ${escapeHtml(m.name)}.</p>`;
+  } else {
+    html += daysWithOutfits.map(date=>{
+      const d = new Date(date+"T00:00:00");
+      const dayLabel = d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+      const slots = getSlotsForDay(t, date);
+      const dayData = (t.days||{})[date]||{};
+      const memberOutfits = (dayData.outfits||{})[m.id]||{};
+      const slotsHtml = buildFlipbookSlotsHtml(m.id, date, slots, memberOutfits);
+      return `<div class="flipbook-block">
+        <div class="flipbook-block-header">${escapeHtml(dayLabel)}</div>
+        ${slotsHtml || `<p class="flipbook-empty">Nothing planned</p>`}
+      </div>`;
+    }).join("");
+  }
+  $("flipbookCardArea").innerHTML = html;
+  drawFlipbookCollages();
+}
+
+/* Draws every collage canvas placeholder currently in the flipbook card area */
+function drawFlipbookCollages(){
+  const t = activeTrip;
+  $("flipbookCardArea").querySelectorAll("[data-fb-collage]").forEach(wrap=>{
+    const [memberId, date, slotKey] = wrap.dataset.fbCollage.split("|");
+    const dayData = (t.days||{})[date]||{};
+    const items = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
+    const photoItems = items.filter(i=>i && typeof i==="object" && i.type==="wardrobe");
+    const canvas = document.createElement("canvas");
+    canvas.width = 300; canvas.height = 300;
+    wrap.appendChild(canvas);
+    drawOutfitCollage(canvas, photoItems);
+  });
+}
+
+$("flipbookPrevBtn").addEventListener("click", ()=>{ flipbookIndex--; renderFlipbook(); });
+$("flipbookNextBtn").addEventListener("click", ()=>{ flipbookIndex++; renderFlipbook(); });
+
+// Basic swipe support for mobile
+let flipbookTouchStartX = null;
+$("flipbookCardArea").addEventListener("touchstart", e=>{
+  flipbookTouchStartX = e.touches[0].clientX;
+}, {passive:true});
+$("flipbookCardArea").addEventListener("touchend", e=>{
+  if(flipbookTouchStartX===null) return;
+  const dx = e.changedTouches[0].clientX - flipbookTouchStartX;
+  flipbookTouchStartX = null;
+  if(Math.abs(dx) < 50) return; // ignore small taps/scrolls
+  if(dx < 0 && !$("flipbookNextBtn").disabled){ flipbookIndex++; renderFlipbook(); }
+  else if(dx > 0 && !$("flipbookPrevBtn").disabled){ flipbookIndex--; renderFlipbook(); }
+}, {passive:true});
 
 /* ---------- Phase 5: Per-Person Packing Lists ---------- */
 
