@@ -688,6 +688,9 @@
         <button class="btn btn-ghost" id="openBulkUploadWardrobe" style="flex:1;">📸 Bulk upload photos</button>
       </div>
       <input type="file" id="bulkUploadInput" accept="image/*" multiple style="display:none;">
+      <div style="margin-top:22px;padding-top:14px;border-top:1px solid var(--line);text-align:center;">
+        <button class="btn btn-danger" id="clearWardrobeBtn" style="font-size:13px;padding:8px 12px;">🗑️ Clear all items for this person</button>
+      </div>
     </div>
 
     <div class="inner-panel" id="wardrobe-panel-outfits">
@@ -2926,6 +2929,60 @@ async function runBulkWardrobeUpload(files, memberId){
   </div>`;
   setTimeout(()=>{ progressBox.style.display = "none"; }, 5000);
 }
+
+/* ---- Clear all wardrobe items for the currently selected person ----
+   Scoped per-person (not a global wipe) to match how the Wardrobe tab is organized, and to
+   limit the blast radius of what's otherwise a destructive, unrecoverable action. Also deletes
+   the underlying Storage photos so nothing orphaned racks up in the bucket. Any saved outfits
+   referencing these items simply show fewer pieces afterward (already handled gracefully by
+   resolveOutfitItems) rather than breaking. */
+$("clearWardrobeBtn").addEventListener("click", async ()=>{
+  if(!activeWardrobePersonId){ setStatus("No person selected.", true); return; }
+  const m = members.find(x=>x.id===activeWardrobePersonId);
+  const name = m ? m.name : "this person";
+  const items = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  if(items.length===0){ setStatus("Nothing to clear — this closet is already empty.", true); return; }
+
+  const firstConfirm = confirm(
+    `Delete all ${items.length} clothing item${items.length!==1?"s":""} for ${name}, including their photos? ` +
+    `Any saved outfits using these items will lose those pieces. This can't be undone.`
+  );
+  if(!firstConfirm) return;
+  const secondConfirm = confirm(`Really delete all ${items.length} items for ${name}? Last chance to cancel.`);
+  if(!secondConfirm) return;
+
+  const progressBox = $("bulkUploadProgress");
+  progressBox.style.display = "";
+  let done = 0, failed = 0;
+  const total = items.length;
+
+  function updateClearProgress(){
+    const pct = Math.round(done/total*100);
+    progressBox.innerHTML = `
+      <div class="bulk-progress-label">Deleting ${done} of ${total}…</div>
+      <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%"></div></div>`;
+  }
+  updateClearProgress();
+
+  for(const item of items){
+    try{
+      await deleteDoc(doc(db,"wardrobeItems",item.id));
+      if(item.storagePath){
+        try{ await deleteObject(storageRef(storage, item.storagePath)); }catch(e){ /* non-fatal */ }
+      }
+    }catch(err){
+      failed++;
+    } finally {
+      done++;
+      updateClearProgress();
+    }
+  }
+
+  progressBox.innerHTML = `<div class="bulk-progress-label">
+    ✅ Cleared ${done-failed} item${(done-failed)!==1?"s":""}${failed>0?`, ${failed} failed to delete`:""} for ${name}.
+  </div>`;
+  setTimeout(()=>{ progressBox.style.display = "none"; }, 5000);
+});
 
 $("wardrobePhotoPreviewWrap").addEventListener("click", ()=> $("wardrobePhotoInput").click());
 $("wardrobePhotoInput").addEventListener("change", async ()=>{
