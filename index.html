@@ -960,10 +960,51 @@
       <label>Name</label>
       <input type="text" id="wardrobeItemName" placeholder="e.g. Black Sandals">
     </div>
-    <div class="field">
-      <label>Category</label>
-      <select id="wardrobeItemCategory"></select>
+    <div class="row2">
+      <div class="field">
+        <label>Category</label>
+        <select id="wardrobeItemCategory"></select>
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <input type="text" id="wardrobeItemColor" placeholder="e.g. Navy">
+      </div>
     </div>
+    <div class="row2">
+      <div class="field">
+        <label>Size</label>
+        <input type="text" id="wardrobeItemSize" placeholder="e.g. 8, M, 7T">
+      </div>
+      <div class="field">
+        <label>Price</label>
+        <input type="number" id="wardrobeItemPrice" placeholder="0.00" min="0" step="0.01">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>Date purchased</label>
+        <input type="date" id="wardrobeItemDatePurchased">
+      </div>
+      <div class="field">
+        <label>Location purchased</label>
+        <input type="text" id="wardrobeItemLocation" placeholder="e.g. Target">
+      </div>
+    </div>
+    <div class="field">
+      <label>Alterations needed</label>
+      <textarea id="wardrobeItemAlterations" placeholder="e.g. Hem 1 inch" rows="2" style="width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--canvas-raised);font-family:'Inter';font-size:15px;color:var(--ink);resize:vertical;"></textarea>
+    </div>
+
+    <div class="field" id="wearLogField" style="display:none;">
+      <label>Wear log</label>
+      <div id="wearLogSummary" style="font-size:13px;color:var(--ink-soft);margin-bottom:8px;"></div>
+      <div id="wearLogList"></div>
+      <div class="add-guest" style="margin-top:8px;">
+        <input type="date" id="wearLogDateInput">
+        <button class="btn btn-ghost" id="logWearBtn">Log a wear</button>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-danger" id="deleteWardrobeItemBtn" style="display:none;">Delete</button>
       <button class="btn btn-ghost" id="cancelWardrobeItem">Cancel</button>
@@ -2887,7 +2928,7 @@ function renderWardrobeGrid(){
       ${w.needsDetails ? `<span class="wc-needs-badge">Needs details</span>` : ""}
       ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
       <div class="wc-name">${escapeHtml(w.name)}</div>
-      <div class="wc-cat">${escapeHtml(w.category||"")}</div>
+      <div class="wc-cat">${escapeHtml([w.category, w.size].filter(Boolean).join(" · "))}</div>
     </div>`;
   }).join("");
 
@@ -2965,7 +3006,22 @@ function openWardrobeItemModal(item){
   $("wardrobeItemMember").value = item ? item.memberId : (activeWardrobePersonId || "");
   $("wardrobeItemName").value = item ? item.name : "";
   $("wardrobeItemCategory").value = item ? (item.category||"Other") : "Other";
+  $("wardrobeItemColor").value = item ? (item.color||"") : "";
+  $("wardrobeItemSize").value = item ? (item.size||"") : "";
+  $("wardrobeItemPrice").value = (item && item.price!=null) ? item.price : "";
+  $("wardrobeItemDatePurchased").value = item ? (item.datePurchased||"") : "";
+  $("wardrobeItemLocation").value = item ? (item.locationPurchased||"") : "";
+  $("wardrobeItemAlterations").value = item ? (item.alterations||"") : "";
   $("deleteWardrobeItemBtn").style.display = item ? "" : "none";
+
+  // Wear log only applies to items that already exist — nothing to log against before the first save
+  if(item){
+    $("wearLogField").style.display = "";
+    $("wearLogDateInput").value = new Date().toISOString().split("T")[0];
+    renderWearLog(item);
+  } else {
+    $("wearLogField").style.display = "none";
+  }
 
   $("wardrobePhotoInput").value = "";
   if(item && item.photoURL){
@@ -2978,6 +3034,67 @@ function openWardrobeItemModal(item){
     $("wardrobePhotoPlaceholder").textContent = "Tap to choose a photo";
   }
   $("wardrobeItemOverlay").classList.add("open");
+}
+
+/* ---- Wear log: a simple array of ISO date strings on the wardrobe item doc ---- */
+function renderWearLog(item){
+  const log = [...(item.wearLog||[])].sort().reverse(); // most recent first
+  const count = log.length;
+  const lastWorn = count>0 ? formatWearDate(log[0]) : null;
+  $("wearLogSummary").textContent = count>0
+    ? `Worn ${count} time${count!==1?"s":""} — last worn ${lastWorn}`
+    : "Not logged as worn yet.";
+
+  const listBox = $("wearLogList");
+  if(count===0){
+    listBox.innerHTML = "";
+    return;
+  }
+  // Show the most recent entries inline; keep it compact rather than an unbounded list
+  const shown = log.slice(0, 8);
+  listBox.innerHTML = shown.map((dateStr, idx)=>`
+    <div class="checklist-row">
+      <span class="cl-label">${formatWearDate(dateStr)}</span>
+      <button class="cl-remove" data-remove-wear="${escapeHtml(dateStr)}" title="Remove">×</button>
+    </div>`).join("");
+  if(log.length>shown.length){
+    listBox.innerHTML += `<p style="font-size:12px;color:var(--ink-soft);margin-top:4px;">+ ${log.length-shown.length} earlier</p>`;
+  }
+  listBox.querySelectorAll("[data-remove-wear]").forEach(btn=>{
+    btn.addEventListener("click", ()=> removeWearEntry(btn.dataset.removeWear));
+  });
+}
+
+function formatWearDate(iso){
+  return new Date(iso+"T00:00:00").toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});
+}
+
+$("logWearBtn").addEventListener("click", async ()=>{
+  if(!editingWardrobeItemId) return;
+  const dateStr = $("wearLogDateInput").value || new Date().toISOString().split("T")[0];
+  const item = wardrobeItems.find(w=>w.id===editingWardrobeItemId);
+  if(!item) return;
+  const updated = [...(item.wearLog||[]), dateStr];
+  try{
+    await updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), {wearLog: updated});
+    item.wearLog = updated; // keep local state fresh until the snapshot listener catches up
+    renderWearLog(item);
+  }catch(err){ showWardrobeItemError("Couldn't log wear: "+err.message); }
+});
+
+async function removeWearEntry(dateStr){
+  if(!editingWardrobeItemId) return;
+  const item = wardrobeItems.find(w=>w.id===editingWardrobeItemId);
+  if(!item) return;
+  const log = [...(item.wearLog||[])];
+  const idx = log.indexOf(dateStr);
+  if(idx===-1) return;
+  log.splice(idx,1); // remove a single matching entry, not all entries on that date
+  try{
+    await updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), {wearLog: log});
+    item.wearLog = log; // keep local state fresh until the snapshot listener catches up
+    renderWearLog(item);
+  }catch(err){ showWardrobeItemError("Couldn't remove entry: "+err.message); }
 }
 
 $("openAddWardrobeItem").addEventListener("click", ()=> openWardrobeItemModal(null));
@@ -3021,7 +3138,8 @@ async function runBulkWardrobeUpload(files, memberId){
       const photoURL = await withTimeout(getDownloadURL(fileRef), 15000, "Fetching photo URL");
       await addDoc(wardrobeCol, {
         memberId, name:"Untitled item", category:"Other", photoURL, storagePath,
-        needsDetails: true, createdAt: serverTimestamp()
+        color:"", size:"", price:null, datePurchased:null, locationPurchased:"", alterations:"",
+        wearLog:[], needsDetails: true, createdAt: serverTimestamp()
       });
       succeeded++;
     }catch(err){
@@ -3217,6 +3335,13 @@ $("saveWardrobeItemBtn").addEventListener("click", async ()=>{
   const memberId = $("wardrobeItemMember").value;
   const name = $("wardrobeItemName").value.trim();
   const category = $("wardrobeItemCategory").value;
+  const color = $("wardrobeItemColor").value.trim();
+  const size = $("wardrobeItemSize").value.trim();
+  const priceRaw = $("wardrobeItemPrice").value;
+  const price = priceRaw !== "" ? Math.round(parseFloat(priceRaw)*100)/100 : null;
+  const datePurchased = $("wardrobeItemDatePurchased").value || null;
+  const locationPurchased = $("wardrobeItemLocation").value.trim();
+  const alterations = $("wardrobeItemAlterations").value.trim();
   if(!memberId){ showWardrobeItemError("Add a family member first."); return; }
   if(!name){ showWardrobeItemError("Give the item a name."); return; }
 
@@ -3241,11 +3366,14 @@ $("saveWardrobeItemBtn").addEventListener("click", async ()=>{
       storagePath = existing.storagePath || null;
     }
 
-    const data = { memberId, name, category, photoURL, storagePath, needsDetails:false };
+    const data = {
+      memberId, name, category, photoURL, storagePath, needsDetails:false,
+      color, size, price, datePurchased, locationPurchased, alterations,
+    };
     if(editingWardrobeItemId){
       await withTimeout(updateDoc(doc(db,"wardrobeItems",editingWardrobeItemId), data), 15000, "Saving to database");
     } else {
-      await withTimeout(addDoc(wardrobeCol, {...data, createdAt: serverTimestamp()}), 15000, "Saving to database");
+      await withTimeout(addDoc(wardrobeCol, {...data, wearLog:[], createdAt: serverTimestamp()}), 15000, "Saving to database");
     }
     $("wardrobeItemOverlay").classList.remove("open");
     setStatus("");
