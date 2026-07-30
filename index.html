@@ -405,6 +405,18 @@
   .wardrobe-selection-bar .wsb-count{font-size:13px;font-weight:700;color:var(--teal-dark);white-space:nowrap;}
   .wardrobe-selection-bar .wsb-actions{display:flex;gap:6px;flex-wrap:wrap;}
 
+  /* ---- Category filter chip row (wardrobe grids + packing list) ---- */
+  .category-filter-row{
+    display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .category-filter-chip{
+    flex-shrink:0;font-size:11px;font-weight:600;padding:5px 11px;border-radius:999px;
+    background:var(--canvas-raised);border:1px solid var(--line);color:var(--ink-soft);
+    cursor:pointer;white-space:nowrap;
+  }
+  .category-filter-chip.active{background:#E8F1F0;border-color:var(--teal);color:var(--teal-dark);}
+
   .wardrobe-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
   .wardrobe-card .wc-photo{
     width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);display:block;
@@ -712,6 +724,7 @@
       <div style="display:flex;justify-content:flex-end;">
         <button class="link-btn" id="wardrobeSelectAllBtn" style="display:none;background:none;border:none;cursor:pointer;font-size:12px;font-weight:700;color:var(--teal-dark);text-decoration:underline;padding:2px 0;"></button>
       </div>
+      <div id="wardrobeCategoryFilterRow" class="category-filter-row"></div>
       <div id="wardrobeGrid" style="margin-top:8px;"></div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn btn-ghost" id="openAddWardrobeItem" style="flex:1;">+ Add one item</button>
@@ -890,6 +903,7 @@
   </div>
   <div class="detail-body" style="padding-top:14px;">
     <div id="personPackProgressBar" style="margin-bottom:18px;"></div>
+    <div id="packOutfitsCategoryFilterRow" class="category-filter-row" style="display:none;"></div>
     <div id="personPackItems"></div>
   </div>
 </div>
@@ -1018,6 +1032,7 @@
   <div class="modal">
     <h2 id="wardrobePickerTitle">Choose from wardrobe</h2>
     <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">Tap items to add them to this outfit. Tap Done when finished.</p>
+    <div id="wardrobePickerCategoryFilterRow" class="category-filter-row"></div>
     <div id="wardrobePickerGrid" class="wardrobe-grid" style="margin-top:10px;"></div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="doneWardrobePicker" style="flex:1;">Done</button>
@@ -1066,6 +1081,7 @@
     </div>
     <div class="field">
       <label>Pick items from this person's wardrobe</label>
+      <div id="outfitBuilderCategoryFilterRow" class="category-filter-row"></div>
       <div id="outfitBuilderGrid" class="outfit-builder-grid"></div>
     </div>
     <div class="modal-actions">
@@ -1212,7 +1228,27 @@ const tripsCol = collection(db, "trips");
 const houseChecklistCol = collection(db, "houseChecklistItems"); // global reusable departure checklist template
 const wardrobeCol = collection(db, "wardrobeItems"); // global digital wardrobe, scoped per member
 const savedOutfitsCol = collection(db, "savedOutfits"); // reusable named outfits, scoped per member
-const WARDROBE_CATEGORIES = ["Tops","Bottoms","Dresses","Shoes","Outerwear","Accessories","Other"];
+const WARDROBE_CATEGORIES = [
+  "Athletic and Sweatpants","Athletic Shorts","Athletic Tops","Blazers","Button Down Shirts",
+  "Cardigans","Dresses","Jackets","Jeans","Long Sleeve T Shirts","Pants","Rompers","Shorts",
+  "Skirts","Sleeveless Shirts","Sweaters","Sweatshirts","Swimsuits","T Shirts","Tanks","Tops",
+  "Turtlenecks","Vests","Shoes","Accessories","Other"
+];
+
+/* Renders an "All / Category1 / Category2..." filter chip row into the given element.
+   `categories` lets callers pass a narrower set (e.g. only categories actually present)
+   instead of the full 26-item list, when that's more useful. `onPick` receives null for "All". */
+function renderCategoryFilterChips(containerEl, categories, activeFilter, onPick){
+  const chips = ["All", ...categories];
+  containerEl.innerHTML = chips.map(c=>{
+    const isActive = (activeFilter===null && c==="All") || activeFilter===c;
+    return `<button type="button" class="category-filter-chip ${isActive?"active":""}" data-cat-filter="${escapeHtml(c)}">${escapeHtml(c)}</button>`;
+  }).join("");
+  containerEl.querySelectorAll("[data-cat-filter]").forEach(btn=>{
+    btn.addEventListener("click", ()=> onPick(btn.dataset.catFilter==="All" ? null : btn.dataset.catFilter));
+  });
+}
+
 
 const EMOJIS = ["🧑🏽","👩🏽","👨🏽","🧑🏾","👩🏾","👨🏾","🧒🏽","👧🏽","👦🏽","👶🏽","🧓🏽","🧔🏽","🐶","🐱","🐾"];
 const COLORS = ["#2E6F6B","#D98E3B","#B85C5C","#7C9070","#5C7CB8","#9B6CB8","#C77B3E"];
@@ -1246,6 +1282,10 @@ let outfitBuilderSelectedIds = new Set(); // wardrobe item ids currently checked
 let savedOutfitPickerContext = null; // {memberId, slotKey} while the outfit-slot "use saved outfit" picker is open
 let wardrobeShowOnlyNeedsDetails = false; // filters the Items grid to just bulk-imported items awaiting cleanup
 let wardrobeSelectedIds = new Set(); // wardrobe item ids currently multi-selected on the Items grid
+let wardrobeItemsCategoryFilter = null;   // Items grid category filter (null = show all)
+let wardrobePickerCategoryFilter = null;  // "choose from wardrobe" (outfit slot) picker filter
+let outfitBuilderCategoryFilter = null;   // saved-outfit builder's item picker filter
+let packOutfitsCategoryFilter = null;     // person pack page's Outfits section filter
 
 /* ---------- Location autocomplete ---------- */
 
@@ -2753,6 +2793,7 @@ function renderWardrobeTab(){
     b.addEventListener("click", ()=>{
       activeWardrobePersonId = b.dataset.wp;
       wardrobeSelectedIds.clear(); // selection ids aren't scoped per-person, so switching people must reset it
+      wardrobeItemsCategoryFilter = null; // category presence differs per person too
       renderWardrobeTab();
     });
   });
@@ -2894,7 +2935,22 @@ function renderWardrobeGrid(){
     });
   }
 
-  const items = wardrobeShowOnlyNeedsDetails ? allItems.filter(w=>w.needsDetails) : allItems;
+  // Category filter — only offer categories actually present, so the row isn't 26 chips deep
+  const filterRow = $("wardrobeCategoryFilterRow");
+  const presentCategories = [...new Set(allItems.map(w=>w.category).filter(Boolean))].sort();
+  if(allItems.length===0 || presentCategories.length===0){
+    filterRow.style.display = "none";
+    wardrobeItemsCategoryFilter = null;
+  } else {
+    filterRow.style.display = "";
+    renderCategoryFilterChips(filterRow, presentCategories, wardrobeItemsCategoryFilter, (cat)=>{
+      wardrobeItemsCategoryFilter = cat;
+      renderWardrobeGrid();
+    });
+  }
+
+  let items = wardrobeShowOnlyNeedsDetails ? allItems.filter(w=>w.needsDetails) : allItems;
+  if(wardrobeItemsCategoryFilter) items = items.filter(w=>w.category===wardrobeItemsCategoryFilter);
 
   renderWardrobeSelectionBar();
 
@@ -2914,7 +2970,9 @@ function renderWardrobeGrid(){
     return;
   }
   if(items.length===0){
-    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">All caught up — nothing needs details.</p>`;
+    grid.innerHTML = wardrobeShowOnlyNeedsDetails
+      ? `<p style="font-size:13px;color:var(--ink-soft);">All caught up — nothing needs details.</p>`
+      : `<p style="font-size:13px;color:var(--ink-soft);">No items match this filter.</p>`;
     return;
   }
   const selectionActive = wardrobeSelectedIds.size>0;
@@ -3400,6 +3458,7 @@ $("deleteWardrobeItemBtn").addEventListener("click", async ()=>{
 /* ---- Wardrobe picker (choosing photo items into an outfit slot from the day plan page) ---- */
 function openWardrobePicker(memberId, slotKey){
   wardrobePickerContext = {memberId, slotKey};
+  wardrobePickerCategoryFilter = null;
   const m = members.find(x=>x.id===memberId);
   $("wardrobePickerTitle").textContent = m ? `${m.emoji||"🧑🏽"} ${m.name}'s wardrobe` : "Choose from wardrobe";
   renderWardrobePickerGrid();
@@ -3408,10 +3467,32 @@ function openWardrobePicker(memberId, slotKey){
 
 function renderWardrobePickerGrid(){
   const grid = $("wardrobePickerGrid");
-  if(!wardrobePickerContext){ grid.innerHTML=""; return; }
-  const items = wardrobeItems.filter(w=>w.memberId===wardrobePickerContext.memberId);
-  if(items.length===0){
+  const filterRow = $("wardrobePickerCategoryFilterRow");
+  if(!wardrobePickerContext){ grid.innerHTML=""; filterRow.style.display="none"; return; }
+  const allItems = wardrobeItems.filter(w=>w.memberId===wardrobePickerContext.memberId);
+
+  const presentCategories = [...new Set(allItems.map(w=>w.category).filter(Boolean))].sort();
+  if(allItems.length===0 || presentCategories.length===0){
+    filterRow.style.display = "none";
+    wardrobePickerCategoryFilter = null;
+  } else {
+    filterRow.style.display = "";
+    renderCategoryFilterChips(filterRow, presentCategories, wardrobePickerCategoryFilter, (cat)=>{
+      wardrobePickerCategoryFilter = cat;
+      renderWardrobePickerGrid();
+    });
+  }
+
+  const items = wardrobePickerCategoryFilter
+    ? allItems.filter(w=>w.category===wardrobePickerCategoryFilter)
+    : allItems;
+
+  if(allItems.length===0){
     grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No items in this wardrobe yet — add some from the Wardrobe tab first.</p>`;
+    return;
+  }
+  if(items.length===0){
+    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No items match this filter.</p>`;
     return;
   }
   grid.innerHTML = items.map(w=>`
@@ -3443,6 +3524,7 @@ function showOutfitBuilderError(msg){
 function openOutfitBuilder(outfit, presetIds){
   editingSavedOutfitId = outfit ? outfit.id : null;
   outfitBuilderSelectedIds = new Set(outfit ? (outfit.itemIds||[]) : (presetIds||[]));
+  outfitBuilderCategoryFilter = null;
   $("outfitBuilderTitle").textContent = outfit ? "Edit outfit" : "Create outfit";
   $("outfitBuilderError").style.display = "none";
   $("outfitBuilderName").value = outfit ? outfit.name : "";
@@ -3453,10 +3535,32 @@ function openOutfitBuilder(outfit, presetIds){
 }
 
 function renderOutfitBuilderGrid(){
-  const items = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  const allItems = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
   const grid = $("outfitBuilderGrid");
-  if(items.length===0){
+  const filterRow = $("outfitBuilderCategoryFilterRow");
+
+  const presentCategories = [...new Set(allItems.map(w=>w.category).filter(Boolean))].sort();
+  if(allItems.length===0 || presentCategories.length===0){
+    filterRow.style.display = "none";
+    outfitBuilderCategoryFilter = null;
+  } else {
+    filterRow.style.display = "";
+    renderCategoryFilterChips(filterRow, presentCategories, outfitBuilderCategoryFilter, (cat)=>{
+      outfitBuilderCategoryFilter = cat;
+      renderOutfitBuilderGrid();
+    });
+  }
+
+  const items = outfitBuilderCategoryFilter
+    ? allItems.filter(w=>w.category===outfitBuilderCategoryFilter)
+    : allItems;
+
+  if(allItems.length===0){
     grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No wardrobe items for this person yet — add some under the Items tab first.</p>`;
+    return;
+  }
+  if(items.length===0){
+    grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);grid-column:1/-1;">No items match this filter.</p>`;
     return;
   }
   grid.innerHTML = items.map(w=>`
@@ -3783,7 +3887,7 @@ let activePackMemberId = null;
 /* Build deduplicated outfit items for one member across all days */
 function buildOutfitItems(trip, memberId){
   const days = generateDays(trip.startDate, trip.endDate);
-  const itemMap = {}; // dedup key -> {name, photoURL, days: Set}
+  const itemMap = {}; // dedup key -> {name, photoURL, category, days: Set}
   days.forEach(date=>{
     const dayData = (trip.days||{})[date]||{};
     const memberOutfits = (dayData.outfits||{})[memberId]||{};
@@ -3793,8 +3897,9 @@ function buildOutfitItems(trip, memberId){
       (items||[]).forEach(item=>{
         const isWardrobe = item && typeof item==="object" && item.type==="wardrobe";
         const name = isWardrobe ? item.name : item;
+        const category = isWardrobe ? (item.category || "Other") : "Uncategorized";
         const key = isWardrobe ? `w:${item.itemId}` : `t:${name.toLowerCase().trim()}`;
-        if(!itemMap[key]) itemMap[key] = {name, photoURL: isWardrobe?item.photoURL:null, days:new Set()};
+        if(!itemMap[key]) itemMap[key] = {name, photoURL: isWardrobe?item.photoURL:null, category, days:new Set()};
         itemMap[key].days.add(dow);
       });
     });
@@ -3803,6 +3908,7 @@ function buildOutfitItems(trip, memberId){
     key:`outfit:${key}`,
     name:val.name,
     photoURL:val.photoURL,
+    category:val.category,
     note:[...val.days].join(", "),
   }));
 }
@@ -3900,6 +4006,7 @@ function openPersonPackPage(memberId){
     label = `${m.emoji||"🧑🏽"} ${m.name}`;
   }
   activePackMemberId=memberId;
+  packOutfitsCategoryFilter = null;
   $("personPackName").textContent=label;
   renderPersonPackPage();
   $("personPackPage").classList.add("open");
@@ -3933,10 +4040,31 @@ function renderPersonPackPage(){
 
   let html = "";
 
-  // Outfits section
-  if(outfitItems.length>0){
+  // Outfits section — filterable by wardrobe category
+  const filterRow = $("packOutfitsCategoryFilterRow");
+  if(outfitItems.length===0){
+    filterRow.style.display = "none";
+    packOutfitsCategoryFilter = null;
+  } else {
+    const presentCategories = [...new Set(outfitItems.map(i=>i.category).filter(Boolean))].sort();
+    if(presentCategories.length<=1){
+      filterRow.style.display = "none"; // not worth a filter with 0-1 categories present
+      packOutfitsCategoryFilter = null;
+    } else {
+      filterRow.style.display = "";
+      renderCategoryFilterChips(filterRow, presentCategories, packOutfitsCategoryFilter, (cat)=>{
+        packOutfitsCategoryFilter = cat;
+        renderPersonPackPage();
+      });
+    }
+  }
+  const filteredOutfitItems = packOutfitsCategoryFilter
+    ? outfitItems.filter(i=>i.category===packOutfitsCategoryFilter)
+    : outfitItems;
+
+  if(filteredOutfitItems.length>0){
     html += `<div class="pack-section-label">Outfits</div>`;
-    html += outfitItems.map(item=>{
+    html += filteredOutfitItems.map(item=>{
       const isPacked = !!packedMap[item.key];
       const thumb = item.photoURL ? `<img class="wardrobe-pack-thumb" src="${item.photoURL}" alt="">` : "";
       return `<div class="pack-item-row ${isPacked?"is-packed":""}">
@@ -3946,6 +4074,8 @@ function renderPersonPackPage(){
         ${item.note?`<span class="pack-item-note">${escapeHtml(item.note)}</span>`:""}
       </div>`;
     }).join("");
+  } else if(outfitItems.length>0){
+    html += `<div class="pack-section-label">Outfits</div><p style="font-size:13px;color:var(--ink-soft);">No items match this filter.</p>`;
   }
 
   // Essentials grouped by category
