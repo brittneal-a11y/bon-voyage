@@ -417,6 +417,25 @@
   }
   .category-filter-chip.active{background:#E8F1F0;border-color:var(--teal);color:var(--teal-dark);}
 
+  /* ---- Full-size photo lightbox ---- */
+  .lightbox-content{position:relative;max-width:92vw;max-height:88vh;}
+  .lightbox-content img{
+    max-width:92vw;max-height:88vh;border-radius:12px;display:block;
+    box-shadow:0 12px 40px rgba(0,0,0,.4);
+  }
+  .lightbox-close{
+    position:absolute;top:10px;right:10px;
+    width:34px;height:34px;border-radius:50%;
+    background:rgba(43,38,32,.7);color:#fff;border:none;cursor:pointer;
+    font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center;
+  }
+  .wc-zoom-btn{
+    position:absolute;bottom:6px;left:6px;z-index:3;
+    width:26px;height:26px;border-radius:50%;
+    background:rgba(43,38,32,.55);color:#fff;border:none;cursor:pointer;
+    font-size:12px;display:flex;align-items:center;justify-content:center;
+  }
+
   .wardrobe-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
   .wardrobe-card .wc-photo{
     width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);display:block;
@@ -969,6 +988,7 @@
         <span id="wardrobePhotoPlaceholder">Tap to choose a photo</span>
       </div>
       <input type="file" id="wardrobePhotoInput" accept="image/*" style="display:none;">
+      <button type="button" class="link-btn" id="viewFullSizeBtn" style="display:none;background:none;border:none;cursor:pointer;font-size:12px;font-weight:700;color:var(--teal-dark);text-decoration:underline;padding:6px 0 0;">🔍 View full size</button>
     </div>
     <div class="field">
       <label>Name</label>
@@ -1024,6 +1044,14 @@
       <button class="btn btn-ghost" id="cancelWardrobeItem">Cancel</button>
       <button class="btn btn-primary" id="saveWardrobeItemBtn">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- PHOTO LIGHTBOX (full-size view of a wardrobe photo, for checking crop/framing) -->
+<div class="overlay" id="photoLightboxOverlay">
+  <div class="lightbox-content">
+    <button class="lightbox-close" id="closePhotoLightbox" aria-label="Close">×</button>
+    <img id="photoLightboxImg" src="" alt="">
   </div>
 </div>
 
@@ -2773,6 +2801,14 @@ function resizeImageFile(file, maxDim=900, quality=0.82){
 /* Human members only — pets and one-off guests don't get outfit-planned wardrobes */
 function humanMembers(){ return members.filter(m=>m.type==="human"); }
 
+/* ---- Full-size photo lightbox — for checking crop/framing on a wardrobe photo ---- */
+function openPhotoLightbox(url){
+  $("photoLightboxImg").src = url;
+  $("photoLightboxOverlay").classList.add("open");
+}
+$("closePhotoLightbox").addEventListener("click", ()=> $("photoLightboxOverlay").classList.remove("open"));
+
+
 /* ---- Wardrobe tab: person selector, then Items or Outfits panel ---- */
 function renderWardrobeTab(){
   const humans = humanMembers();
@@ -2982,6 +3018,7 @@ function renderWardrobeGrid(){
     return `
     <div class="wardrobe-card ${isSelected?"selected":""}" data-wardrobe-item="${w.id}">
       <button class="wc-edit-btn" data-wardrobe-edit="${w.id}" title="Edit">✏️</button>
+      ${w.photoURL ? `<button class="wc-zoom-btn" data-wardrobe-zoom="${w.id}" title="View full size">🔍</button>` : ""}
       ${selectionActive ? `<span class="wc-checkbox ${isSelected?"checked":""}"></span>` : ""}
       ${w.needsDetails ? `<span class="wc-needs-badge">Needs details</span>` : ""}
       ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
@@ -2990,10 +3027,10 @@ function renderWardrobeGrid(){
     </div>`;
   }).join("");
 
-  // Tapping a card toggles its selection; the dedicated pencil button opens the full edit modal
+  // Tapping a card toggles its selection; the dedicated pencil and zoom buttons do their own thing
   grid.querySelectorAll("[data-wardrobe-item]").forEach(card=>{
     card.addEventListener("click", (e)=>{
-      if(e.target.closest("[data-wardrobe-edit]")) return;
+      if(e.target.closest("[data-wardrobe-edit]") || e.target.closest("[data-wardrobe-zoom]")) return;
       toggleWardrobeSelection(card.dataset.wardrobeItem);
     });
   });
@@ -3002,6 +3039,13 @@ function renderWardrobeGrid(){
       e.stopPropagation();
       const item = wardrobeItems.find(w=>w.id===btn.dataset.wardrobeEdit);
       if(item) openWardrobeItemModal(item);
+    });
+  });
+  grid.querySelectorAll("[data-wardrobe-zoom]").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const item = wardrobeItems.find(w=>w.id===btn.dataset.wardrobeZoom);
+      if(item && item.photoURL) openPhotoLightbox(item.photoURL);
     });
   });
 }
@@ -3086,10 +3130,12 @@ function openWardrobeItemModal(item){
     $("wardrobePhotoPreview").src = item.photoURL;
     $("wardrobePhotoPreview").style.display = "";
     $("wardrobePhotoPlaceholder").style.display = "none";
+    $("viewFullSizeBtn").style.display = "";
   } else {
     $("wardrobePhotoPreview").style.display = "none";
     $("wardrobePhotoPlaceholder").style.display = "";
     $("wardrobePhotoPlaceholder").textContent = "Tap to choose a photo";
+    $("viewFullSizeBtn").style.display = "none";
   }
   $("wardrobeItemOverlay").classList.add("open");
 }
@@ -3353,6 +3399,10 @@ async function appendSelectedItemsToOutfit(outfitId){
 }
 
 $("wardrobePhotoPreviewWrap").addEventListener("click", ()=> $("wardrobePhotoInput").click());
+$("viewFullSizeBtn").addEventListener("click", ()=>{
+  const src = $("wardrobePhotoPreview").src;
+  if(src) openPhotoLightbox(src);
+});
 $("wardrobePhotoInput").addEventListener("change", async ()=>{
   const file = $("wardrobePhotoInput").files[0];
   if(!file) return;
@@ -3366,6 +3416,7 @@ $("wardrobePhotoInput").addEventListener("change", async ()=>{
     $("wardrobePhotoPreview").src = url;
     $("wardrobePhotoPreview").style.display = "";
     $("wardrobePhotoPlaceholder").style.display = "none";
+    $("viewFullSizeBtn").style.display = "";
   }catch(err){
     $("wardrobePhotoPlaceholder").style.display = "";
     $("wardrobePhotoPlaceholder").textContent = "Couldn't load that photo — try another.";
