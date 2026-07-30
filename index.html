@@ -379,6 +379,32 @@
   }
   .needs-details-bar .ndb-toggle{font-size:12px;font-weight:700;text-decoration:underline;white-space:nowrap;}
   .bulk-progress-label{font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
+
+  /* ---- Wardrobe multi-select ---- */
+  #wardrobeGrid .wardrobe-card.selected{outline:2px solid var(--teal);}
+  .wc-edit-btn{
+    position:absolute;bottom:6px;right:6px;z-index:3;
+    width:26px;height:26px;border-radius:50%;
+    background:rgba(43,38,32,.55);color:#fff;border:none;cursor:pointer;
+    font-size:12px;display:flex;align-items:center;justify-content:center;
+  }
+  .wc-checkbox{
+    position:absolute;top:6px;right:6px;z-index:2;
+    width:22px;height:22px;border-radius:50%;
+    background:rgba(255,253,248,.9);border:2px solid var(--line);
+  }
+  .wc-checkbox.checked{
+    background:var(--teal);border-color:var(--teal);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .wc-checkbox.checked::after{content:'✓';color:#fff;font-size:12px;font-weight:700;}
+  .wardrobe-selection-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+    background:#E8F1F0;border-radius:10px;padding:9px 12px;margin-bottom:12px;
+  }
+  .wardrobe-selection-bar .wsb-count{font-size:13px;font-weight:700;color:var(--teal-dark);white-space:nowrap;}
+  .wardrobe-selection-bar .wsb-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
   .wardrobe-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
   .wardrobe-card .wc-photo{
     width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--line);display:block;
@@ -682,15 +708,16 @@
     <div class="inner-panel active" id="wardrobe-panel-items">
       <div id="wardrobeNeedsDetailsBar" style="display:none;"></div>
       <div id="bulkUploadProgress" style="display:none;margin-bottom:12px;"></div>
-      <div id="wardrobeGrid" style="margin-top:14px;"></div>
+      <div id="wardrobeSelectionBar" style="display:none;"></div>
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="link-btn" id="wardrobeSelectAllBtn" style="display:none;background:none;border:none;cursor:pointer;font-size:12px;font-weight:700;color:var(--teal-dark);text-decoration:underline;padding:2px 0;"></button>
+      </div>
+      <div id="wardrobeGrid" style="margin-top:8px;"></div>
       <div style="display:flex;gap:8px;margin-top:14px;">
         <button class="btn btn-ghost" id="openAddWardrobeItem" style="flex:1;">+ Add one item</button>
         <button class="btn btn-ghost" id="openBulkUploadWardrobe" style="flex:1;">📸 Bulk upload photos</button>
       </div>
       <input type="file" id="bulkUploadInput" accept="image/*" multiple style="display:none;">
-      <div style="margin-top:22px;padding-top:14px;border-top:1px solid var(--line);text-align:center;">
-        <button class="btn btn-danger" id="clearWardrobeBtn" style="font-size:13px;padding:8px 12px;">🗑️ Clear all items for this person</button>
-      </div>
     </div>
 
     <div class="inner-panel" id="wardrobe-panel-outfits">
@@ -957,6 +984,30 @@
   </div>
 </div>
 
+<!-- BULK SET CATEGORY MODAL (multi-select action) -->
+<div class="overlay" id="bulkCategoryOverlay">
+  <div class="modal">
+    <h2>Set category</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">Applies to every selected item.</p>
+    <div id="bulkCategoryOptions" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelBulkCategory" style="flex:1;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SELECTED ITEMS TO OUTFIT MODAL (multi-select action) -->
+<div class="overlay" id="addToOutfitOverlay">
+  <div class="modal">
+    <h2>Add to outfit</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin-top:-8px;">Add the selected items to a new outfit, or an existing one.</p>
+    <div id="addToOutfitGrid" style="margin-top:10px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="cancelAddToOutfit" style="flex:1;">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- OUTFIT BUILDER MODAL (create/edit a saved, reusable outfit with a live collage preview) -->
 <div class="overlay" id="outfitBuilderOverlay">
   <div class="modal">
@@ -1153,6 +1204,7 @@ let editingSavedOutfitId = null;     // set when the outfit builder modal is edi
 let outfitBuilderSelectedIds = new Set(); // wardrobe item ids currently checked in the outfit builder
 let savedOutfitPickerContext = null; // {memberId, slotKey} while the outfit-slot "use saved outfit" picker is open
 let wardrobeShowOnlyNeedsDetails = false; // filters the Items grid to just bulk-imported items awaiting cleanup
+let wardrobeSelectedIds = new Set(); // wardrobe item ids currently multi-selected on the Items grid
 
 /* ---------- Location autocomplete ---------- */
 
@@ -2657,7 +2709,11 @@ function renderWardrobeTab(){
       ${m.emoji||"🧑🏽"} ${escapeHtml(m.name)}
     </button>`).join("");
   $("wardrobePersonPills").querySelectorAll("[data-wp]").forEach(b=>{
-    b.addEventListener("click", ()=>{ activeWardrobePersonId = b.dataset.wp; renderWardrobeTab(); });
+    b.addEventListener("click", ()=>{
+      activeWardrobePersonId = b.dataset.wp;
+      wardrobeSelectedIds.clear(); // selection ids aren't scoped per-person, so switching people must reset it
+      renderWardrobeTab();
+    });
   });
   if(activeWardrobeInnerTab==="outfits") renderSavedOutfitsGrid();
   else renderWardrobeGrid();
@@ -2798,6 +2854,19 @@ function renderWardrobeGrid(){
   }
 
   const items = wardrobeShowOnlyNeedsDetails ? allItems.filter(w=>w.needsDetails) : allItems;
+
+  renderWardrobeSelectionBar();
+
+  // "Select all" link — toggles between selecting and deselecting everything currently visible
+  const selectAllBtn = $("wardrobeSelectAllBtn");
+  if(allItems.length===0){
+    selectAllBtn.style.display = "none";
+  } else {
+    selectAllBtn.style.display = "";
+    const allVisibleSelected = items.length>0 && items.every(w=>wardrobeSelectedIds.has(w.id));
+    selectAllBtn.textContent = allVisibleSelected ? "Deselect all" : `Select all (${items.length})`;
+  }
+
   const grid = $("wardrobeGrid");
   if(allItems.length===0){
     grid.innerHTML = `<div class="empty" style="padding:28px 0;"><span class="glyph">📷</span><p>No clothing items yet.<br>Add a few photos to start building outfits.</p></div>`;
@@ -2807,20 +2876,70 @@ function renderWardrobeGrid(){
     grid.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">All caught up — nothing needs details.</p>`;
     return;
   }
+  const selectionActive = wardrobeSelectedIds.size>0;
   grid.className = "wardrobe-grid";
-  grid.innerHTML = items.map(w=>`
-    <div class="wardrobe-card" data-wardrobe-item="${w.id}">
+  grid.innerHTML = items.map(w=>{
+    const isSelected = wardrobeSelectedIds.has(w.id);
+    return `
+    <div class="wardrobe-card ${isSelected?"selected":""}" data-wardrobe-item="${w.id}">
+      <button class="wc-edit-btn" data-wardrobe-edit="${w.id}" title="Edit">✏️</button>
+      ${selectionActive ? `<span class="wc-checkbox ${isSelected?"checked":""}"></span>` : ""}
       ${w.needsDetails ? `<span class="wc-needs-badge">Needs details</span>` : ""}
       ${w.photoURL ? `<img class="wc-photo" src="${w.photoURL}" alt="${escapeHtml(w.name)}">` : `<div class="wc-photo-placeholder">👕</div>`}
       <div class="wc-name">${escapeHtml(w.name)}</div>
       <div class="wc-cat">${escapeHtml(w.category||"")}</div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
+
+  // Tapping a card toggles its selection; the dedicated pencil button opens the full edit modal
   grid.querySelectorAll("[data-wardrobe-item]").forEach(card=>{
-    card.addEventListener("click", ()=>{
-      const item = wardrobeItems.find(w=>w.id===card.dataset.wardrobeItem);
+    card.addEventListener("click", (e)=>{
+      if(e.target.closest("[data-wardrobe-edit]")) return;
+      toggleWardrobeSelection(card.dataset.wardrobeItem);
+    });
+  });
+  grid.querySelectorAll("[data-wardrobe-edit]").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const item = wardrobeItems.find(w=>w.id===btn.dataset.wardrobeEdit);
       if(item) openWardrobeItemModal(item);
     });
   });
+}
+
+/* ---- Multi-select on the Items grid ---- */
+function toggleWardrobeSelection(itemId){
+  if(wardrobeSelectedIds.has(itemId)) wardrobeSelectedIds.delete(itemId);
+  else wardrobeSelectedIds.add(itemId);
+  renderWardrobeGrid();
+}
+
+function clearWardrobeSelection(){
+  wardrobeSelectedIds.clear();
+  renderWardrobeGrid();
+}
+
+function renderWardrobeSelectionBar(){
+  const bar = $("wardrobeSelectionBar");
+  if(wardrobeSelectedIds.size===0){
+    bar.style.display = "none";
+    bar.innerHTML = "";
+    return;
+  }
+  bar.style.display = "";
+  bar.innerHTML = `<div class="wardrobe-selection-bar">
+    <span class="wsb-count">${wardrobeSelectedIds.size} selected</span>
+    <div class="wsb-actions">
+      <button class="btn btn-ghost" id="wsbCategoryBtn" style="padding:6px 10px;font-size:12px;">🏷️ Category</button>
+      <button class="btn btn-ghost" id="wsbOutfitBtn" style="padding:6px 10px;font-size:12px;">📚 Add to outfit</button>
+      <button class="btn btn-danger" id="wsbDeleteBtn" style="padding:6px 10px;font-size:12px;">🗑️ Delete</button>
+      <button class="btn btn-ghost" id="wsbCancelBtn" style="padding:6px 10px;font-size:12px;">Cancel</button>
+    </div>
+  </div>`;
+  $("wsbCategoryBtn").addEventListener("click", openBulkCategoryPicker);
+  $("wsbOutfitBtn").addEventListener("click", openAddToOutfitPicker);
+  $("wsbDeleteBtn").addEventListener("click", bulkDeleteSelectedWardrobeItems);
+  $("wsbCancelBtn").addEventListener("click", clearWardrobeSelection);
 }
 
 /* ---- Add/Edit wardrobe item modal ---- */
@@ -2930,59 +3049,132 @@ async function runBulkWardrobeUpload(files, memberId){
   setTimeout(()=>{ progressBox.style.display = "none"; }, 5000);
 }
 
-/* ---- Clear all wardrobe items for the currently selected person ----
-   Scoped per-person (not a global wipe) to match how the Wardrobe tab is organized, and to
-   limit the blast radius of what's otherwise a destructive, unrecoverable action. Also deletes
-   the underlying Storage photos so nothing orphaned racks up in the bucket. Any saved outfits
-   referencing these items simply show fewer pieces afterward (already handled gracefully by
-   resolveOutfitItems) rather than breaking. */
-$("clearWardrobeBtn").addEventListener("click", async ()=>{
-  if(!activeWardrobePersonId){ setStatus("No person selected.", true); return; }
-  const m = members.find(x=>x.id===activeWardrobePersonId);
-  const name = m ? m.name : "this person";
-  const items = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
-  if(items.length===0){ setStatus("Nothing to clear — this closet is already empty.", true); return; }
+/* ---- "Select all" link — toggles selecting/deselecting everything currently visible ---- */
+$("wardrobeSelectAllBtn").addEventListener("click", ()=>{
+  const allItems = wardrobeItems.filter(w=>w.memberId===activeWardrobePersonId);
+  const visibleItems = wardrobeShowOnlyNeedsDetails ? allItems.filter(w=>w.needsDetails) : allItems;
+  const allSelected = visibleItems.length>0 && visibleItems.every(w=>wardrobeSelectedIds.has(w.id));
+  if(allSelected) visibleItems.forEach(w=>wardrobeSelectedIds.delete(w.id));
+  else visibleItems.forEach(w=>wardrobeSelectedIds.add(w.id));
+  renderWardrobeGrid();
+});
 
-  const firstConfirm = confirm(
-    `Delete all ${items.length} clothing item${items.length!==1?"s":""} for ${name}, including their photos? ` +
-    `Any saved outfits using these items will lose those pieces. This can't be undone.`
-  );
-  if(!firstConfirm) return;
-  const secondConfirm = confirm(`Really delete all ${items.length} items for ${name}? Last chance to cancel.`);
-  if(!secondConfirm) return;
+/* ---- Multi-select action: delete ----
+   Deletes both the Firestore records and their Storage photos. Any saved outfits referencing
+   these items simply show fewer pieces afterward (already handled gracefully by
+   resolveOutfitItems) rather than breaking. */
+async function bulkDeleteSelectedWardrobeItems(){
+  const ids = [...wardrobeSelectedIds];
+  if(ids.length===0) return;
+  if(!confirm(`Delete ${ids.length} selected item${ids.length!==1?"s":""}, including their photos? This can't be undone.`)) return;
 
   const progressBox = $("bulkUploadProgress");
   progressBox.style.display = "";
   let done = 0, failed = 0;
-  const total = items.length;
-
-  function updateClearProgress(){
+  const total = ids.length;
+  function updateProgress(){
     const pct = Math.round(done/total*100);
     progressBox.innerHTML = `
       <div class="bulk-progress-label">Deleting ${done} of ${total}…</div>
       <div class="progress-bar-track"><div class="progress-bar-fill" style="width:${pct}%"></div></div>`;
   }
-  updateClearProgress();
+  updateProgress();
 
-  for(const item of items){
+  for(const id of ids){
+    const item = wardrobeItems.find(w=>w.id===id);
     try{
-      await deleteDoc(doc(db,"wardrobeItems",item.id));
-      if(item.storagePath){
+      await deleteDoc(doc(db,"wardrobeItems",id));
+      if(item && item.storagePath){
         try{ await deleteObject(storageRef(storage, item.storagePath)); }catch(e){ /* non-fatal */ }
       }
     }catch(err){
       failed++;
     } finally {
       done++;
-      updateClearProgress();
+      updateProgress();
     }
   }
 
   progressBox.innerHTML = `<div class="bulk-progress-label">
-    ✅ Cleared ${done-failed} item${(done-failed)!==1?"s":""}${failed>0?`, ${failed} failed to delete`:""} for ${name}.
+    ✅ Deleted ${done-failed} item${(done-failed)!==1?"s":""}${failed>0?`, ${failed} failed`:""}.
   </div>`;
   setTimeout(()=>{ progressBox.style.display = "none"; }, 5000);
-});
+  clearWardrobeSelection();
+}
+
+/* ---- Multi-select action: bulk-set category ---- */
+function openBulkCategoryPicker(){
+  const box = $("bulkCategoryOptions");
+  box.innerHTML = WARDROBE_CATEGORIES.map(c=>
+    `<button type="button" class="btn btn-ghost" data-bulk-cat="${escapeHtml(c)}" style="padding:8px 12px;font-size:13px;">${escapeHtml(c)}</button>`
+  ).join("");
+  box.querySelectorAll("[data-bulk-cat]").forEach(btn=>{
+    btn.addEventListener("click", ()=> applyBulkCategory(btn.dataset.bulkCat));
+  });
+  $("bulkCategoryOverlay").classList.add("open");
+}
+$("cancelBulkCategory").addEventListener("click", ()=> $("bulkCategoryOverlay").classList.remove("open"));
+
+async function applyBulkCategory(category){
+  const ids = [...wardrobeSelectedIds];
+  $("bulkCategoryOverlay").classList.remove("open");
+  try{
+    await Promise.all(ids.map(id => updateDoc(doc(db,"wardrobeItems",id), {category})));
+    setStatus(`Category set to "${category}" for ${ids.length} item${ids.length!==1?"s":""}.`);
+  }catch(err){
+    setStatus("Couldn't update category: "+err.message, true);
+  }
+  clearWardrobeSelection();
+}
+
+/* ---- Multi-select action: add to outfit (new or existing) ---- */
+function openAddToOutfitPicker(){
+  const outfits = savedOutfits.filter(o=>o.memberId===activeWardrobePersonId);
+  const grid = $("addToOutfitGrid");
+  grid.className = "wardrobe-grid";
+  const createTile = `<div class="saved-outfit-card" data-create-new-outfit="1">
+    <div class="collage-canvas-wrap" style="display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--ink-soft);">+</div>
+    <div class="so-name">Create new outfit</div>
+  </div>`;
+  const existingTiles = outfits.map(o=>`
+    <div class="saved-outfit-card" data-add-to-outfit="${o.id}">
+      <div class="collage-canvas-wrap"><canvas data-add-outfit-canvas="${o.id}" width="300" height="300"></canvas></div>
+      <div class="so-name">${escapeHtml(o.name)}</div>
+      <div class="so-count">${(o.itemIds||[]).length} piece${(o.itemIds||[]).length!==1?"s":""}</div>
+    </div>`).join("");
+  grid.innerHTML = createTile + existingTiles;
+
+  grid.querySelectorAll("[data-add-outfit-canvas]").forEach(canvas=>{
+    const outfit = outfits.find(o=>o.id===canvas.dataset.addOutfitCanvas);
+    drawOutfitCollage(canvas, resolveOutfitItems(outfit));
+  });
+  grid.querySelector("[data-create-new-outfit]").addEventListener("click", ()=>{
+    const ids = [...wardrobeSelectedIds];
+    $("addToOutfitOverlay").classList.remove("open");
+    clearWardrobeSelection();
+    openOutfitBuilder(null, ids);
+  });
+  grid.querySelectorAll("[data-add-to-outfit]").forEach(card=>{
+    card.addEventListener("click", ()=> appendSelectedItemsToOutfit(card.dataset.addToOutfit));
+  });
+
+  $("addToOutfitOverlay").classList.add("open");
+}
+$("cancelAddToOutfit").addEventListener("click", ()=> $("addToOutfitOverlay").classList.remove("open"));
+
+async function appendSelectedItemsToOutfit(outfitId){
+  const outfit = savedOutfits.find(o=>o.id===outfitId);
+  if(!outfit) return;
+  const merged = Array.from(new Set([...(outfit.itemIds||[]), ...wardrobeSelectedIds]));
+  try{
+    await updateDoc(doc(db,"savedOutfits",outfitId), {itemIds: merged});
+    setStatus(`Added to "${outfit.name}".`);
+  }catch(err){
+    setStatus("Couldn't update outfit: "+err.message, true);
+  }
+  $("addToOutfitOverlay").classList.remove("open");
+  clearWardrobeSelection();
+}
 
 $("wardrobePhotoPreviewWrap").addEventListener("click", ()=> $("wardrobePhotoInput").click());
 $("wardrobePhotoInput").addEventListener("change", async ()=>{
@@ -3120,9 +3312,9 @@ function showOutfitBuilderError(msg){
   setStatus(msg, true);
 }
 
-function openOutfitBuilder(outfit){
+function openOutfitBuilder(outfit, presetIds){
   editingSavedOutfitId = outfit ? outfit.id : null;
-  outfitBuilderSelectedIds = new Set(outfit ? (outfit.itemIds||[]) : []);
+  outfitBuilderSelectedIds = new Set(outfit ? (outfit.itemIds||[]) : (presetIds||[]));
   $("outfitBuilderTitle").textContent = outfit ? "Edit outfit" : "Create outfit";
   $("outfitBuilderError").style.display = "none";
   $("outfitBuilderName").value = outfit ? outfit.name : "";
