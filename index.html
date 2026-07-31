@@ -871,6 +871,13 @@
       </div>
       <button class="btn btn-ghost btn-block" id="openFlipbookBtn" style="margin-bottom:14px;">📖 View outfit flipbook</button>
       <div id="dayCards"></div>
+
+      <div style="margin-top:24px;padding-top:16px;border-top:1px solid var(--line);">
+        <div class="section-label" style="margin-top:0;">🎒 Extra Outfits (backup)</div>
+        <p style="font-size:13px;color:var(--ink-soft);margin:-4px 0 12px;">Backup outfits you're bringing just in case — not tied to a specific day, but they still count toward the packing list.</p>
+        <div id="extraOutfitsArea"></div>
+        <button class="btn btn-ghost btn-block" id="addExtraOutfitBtn" style="margin-top:10px;">+ Add extra outfit</button>
+      </div>
     </div>
 
     <!-- Essentials panel -->
@@ -1971,6 +1978,7 @@ function renderDayCards(){
   const days = generateDays(t.startDate, t.endDate);
   if(days.length===0){
     $("dayCards").innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">Add start/end dates to the trip to see day cards.</p>`;
+    renderExtraOutfitsSection(); // extras aren't date-dependent, so they're still usable here
     return;
   }
   const overrides = t.weatherOverrides||{};
@@ -2038,6 +2046,215 @@ function renderDayCards(){
   $("dayCards").querySelectorAll("[data-plan-date]").forEach(btn=>{
     btn.addEventListener("click", ()=> openDayPlan(btn.dataset.planDate));
   });
+  renderExtraOutfitsSection();
+}
+
+/* ---------- Extra Outfits (backup outfits, not tied to a specific day) ---------- */
+
+function renderExtraOutfitsSection(){
+  const t = activeTrip;
+  const area = $("extraOutfitsArea");
+  if(!t){ area.innerHTML = ""; return; }
+
+  const humans = (t.roster||[])
+    .map(r=>members.find(x=>x.id===r.memberId))
+    .filter(m=>m && m.type==="human");
+  if(humans.length===0){
+    area.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">Add human family members to this trip's roster to plan extra outfits.</p>`;
+    return;
+  }
+
+  const extras = t.extraOutfits || [];
+  if(extras.length===0){
+    area.innerHTML = `<p style="font-size:13px;color:var(--ink-soft);">No extra outfits yet — handy for spills, weather changes, or plans shifting.</p>`;
+    return;
+  }
+
+  const personOptions = extra => humans.map(h=>
+    `<option value="${h.id}" ${h.id===extra.memberId?"selected":""}>${h.emoji||"🧑🏽"} ${escapeHtml(h.name)}</option>`
+  ).join("");
+
+  area.innerHTML = extras.map(extra=>{
+    const items = extra.items||[];
+    const photoItems = items.map((item,idx)=>({item,idx})).filter(x=>x.item && typeof x.item==="object" && x.item.type==="wardrobe");
+    const textItems  = items.map((item,idx)=>({item,idx})).filter(x=>!(x.item && typeof x.item==="object" && x.item.type==="wardrobe"));
+
+    const collagePreviewHtml = photoItems.length
+      ? `<div class="collage-canvas-wrap" style="max-width:220px;margin-bottom:10px;" data-extra-collage="${extra.id}"></div>`
+      : "";
+    const collageChipsHtml = photoItems.length ? `<div class="outfit-collage">${photoItems.map(({item,idx})=>`
+      <div class="collage-chip">
+        ${item.photoURL ? `<img src="${item.photoURL}" alt="${escapeHtml(item.name)}">` : `<div class="wc-photo-placeholder" style="border-radius:10px;">👕</div>`}
+        <div class="cc-name">${escapeHtml(item.name)}</div>
+        <button class="cc-remove" data-extra-remove="${extra.id}" data-extra-idx="${idx}" title="Remove">×</button>
+      </div>`).join("")}</div>` : "";
+    const itemsHtml = textItems.map(({item,idx})=>`
+      <div class="outfit-item-row">
+        <span class="item-bullet">·</span>
+        <span class="item-name">${escapeHtml(item)}</span>
+        <button class="remove-item-btn" data-extra-remove="${extra.id}" data-extra-idx="${idx}" title="Remove">×</button>
+      </div>`).join("");
+
+    return `
+      <div class="outfit-person-card">
+        <div class="outfit-person-header" style="flex-wrap:wrap;gap:8px;">
+          <select data-extra-person="${extra.id}" style="flex:1;min-width:110px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--canvas);font-size:13px;">${personOptions(extra)}</select>
+          <input type="text" value="${escapeHtml(extra.label||"")}" data-extra-label="${extra.id}" placeholder="Label (e.g. Rain Backup)" style="flex:2;min-width:120px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--canvas);font-size:13px;">
+          <button class="icon-btn" data-extra-delete="${extra.id}" title="Remove this extra outfit">🗑️</button>
+        </div>
+        <div class="outfit-slot">
+          ${collagePreviewHtml}
+          ${collageChipsHtml}
+          <div class="outfit-items-list">${itemsHtml}</div>
+          <div class="outfit-add-row">
+            <input type="text" placeholder="Add item…" data-extra-add-input="${extra.id}">
+            <button class="add-item-btn" data-extra-add-btn="${extra.id}">Add</button>
+            <button class="add-item-btn" style="background:var(--amber);" data-extra-wardrobe="${extra.id}" title="Choose from wardrobe">👕</button>
+            <button class="add-item-btn" style="background:var(--sage);" data-extra-saved="${extra.id}" title="Use a saved outfit">📚</button>
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+
+  area.querySelectorAll("[data-extra-collage]").forEach(wrap=>{
+    const extra = extras.find(e=>e.id===wrap.dataset.extraCollage);
+    const items = (extra.items||[]).filter(i=>i && typeof i==="object" && i.type==="wardrobe");
+    const canvas = document.createElement("canvas");
+    canvas.width = 300; canvas.height = 300;
+    wrap.appendChild(canvas);
+    drawOutfitCollage(canvas, items);
+  });
+  area.querySelectorAll("[data-extra-remove]").forEach(btn=>{
+    btn.addEventListener("click", ()=> removeExtraOutfitItem(btn.dataset.extraRemove, parseInt(btn.dataset.extraIdx)));
+  });
+  area.querySelectorAll("[data-extra-person]").forEach(sel=>{
+    sel.addEventListener("change", ()=> updateExtraOutfitPerson(sel.dataset.extraPerson, sel.value));
+  });
+  area.querySelectorAll("[data-extra-label]").forEach(inp=>{
+    inp.addEventListener("change", ()=> updateExtraOutfitLabel(inp.dataset.extraLabel, inp.value.trim()));
+  });
+  area.querySelectorAll("[data-extra-delete]").forEach(btn=>{
+    btn.addEventListener("click", ()=> removeExtraOutfit(btn.dataset.extraDelete));
+  });
+  area.querySelectorAll("[data-extra-add-input]").forEach(inp=>{
+    inp.addEventListener("keydown", e=>{
+      if(e.key==="Enter"){ e.preventDefault(); addExtraOutfitTextItem(inp.dataset.extraAddInput, inp); }
+    });
+  });
+  area.querySelectorAll("[data-extra-add-btn]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const inp = area.querySelector(`[data-extra-add-input="${btn.dataset.extraAddBtn}"]`);
+      if(inp) addExtraOutfitTextItem(btn.dataset.extraAddBtn, inp);
+    });
+  });
+  area.querySelectorAll("[data-extra-wardrobe]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const extra = extras.find(e=>e.id===btn.dataset.extraWardrobe);
+      if(extra) openWardrobePickerForExtra(extra.memberId, extra.id);
+    });
+  });
+  area.querySelectorAll("[data-extra-saved]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const extra = extras.find(e=>e.id===btn.dataset.extraSaved);
+      if(extra) openSavedOutfitPickerForExtra(extra.memberId, extra.id);
+    });
+  });
+}
+
+$("addExtraOutfitBtn").addEventListener("click", async ()=>{
+  const t = activeTrip;
+  if(!t || !activeTripDetailId) return;
+  const humans = (t.roster||[]).map(r=>members.find(x=>x.id===r.memberId)).filter(m=>m && m.type==="human");
+  if(humans.length===0){ setStatus("Add human family members to this trip's roster first.", true); return; }
+  const extras = [...(t.extraOutfits||[])];
+  const newExtra = { id: makeId(), memberId: humans[0].id, label: `Extra Outfit ${extras.length+1}`, items: [] };
+  extras.push(newExtra);
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+    activeTrip.extraOutfits = extras;
+    renderExtraOutfitsSection();
+  }catch(err){ setStatus("Couldn't add extra outfit: "+err.message, true); }
+});
+
+async function removeExtraOutfit(extraId){
+  if(!confirm("Remove this extra outfit?")) return;
+  const extras = (activeTrip.extraOutfits||[]).filter(e=>e.id!==extraId);
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+    activeTrip.extraOutfits = extras;
+    renderExtraOutfitsSection();
+  }catch(err){ setStatus("Couldn't remove: "+err.message, true); }
+}
+
+async function updateExtraOutfitLabel(extraId, label){
+  const extras = [...(activeTrip.extraOutfits||[])];
+  const idx = extras.findIndex(e=>e.id===extraId);
+  if(idx===-1) return;
+  extras[idx] = {...extras[idx], label};
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+    activeTrip.extraOutfits = extras;
+  }catch(err){ setStatus("Couldn't rename: "+err.message, true); }
+}
+
+async function updateExtraOutfitPerson(extraId, memberId){
+  const extras = [...(activeTrip.extraOutfits||[])];
+  const idx = extras.findIndex(e=>e.id===extraId);
+  if(idx===-1) return;
+  extras[idx] = {...extras[idx], memberId};
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+    activeTrip.extraOutfits = extras;
+    renderExtraOutfitsSection();
+  }catch(err){ setStatus("Couldn't update: "+err.message, true); }
+}
+
+async function addExtraOutfitTextItem(extraId, inputEl){
+  const val = inputEl.value.trim();
+  if(!val) return;
+  const extras = [...(activeTrip.extraOutfits||[])];
+  const idx = extras.findIndex(e=>e.id===extraId);
+  if(idx===-1) return;
+  const existing = extras[idx].items||[];
+  extras[idx] = {...extras[idx], items:[...existing, val]};
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+    activeTrip.extraOutfits = extras;
+    inputEl.value = "";
+    renderExtraOutfitsSection();
+  }catch(err){ setStatus("Couldn't save item: "+err.message, true); }
+}
+
+async function removeExtraOutfitItem(extraId, index){
+  const extras = [...(activeTrip.extraOutfits||[])];
+  const idx = extras.findIndex(e=>e.id===extraId);
+  if(idx===-1) return;
+  const existing = [...(extras[idx].items||[])];
+  existing.splice(index,1);
+  extras[idx] = {...extras[idx], items:existing};
+  try{
+    await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+    activeTrip.extraOutfits = extras;
+    renderExtraOutfitsSection();
+  }catch(err){ setStatus("Couldn't remove item: "+err.message, true); }
+}
+
+/* Separate entry points into the existing wardrobe/saved-outfit picker modals, targeting an
+   extra outfit instead of a day's slot. wardrobePickerContext/savedOutfitPickerContext gain an
+   `extraId` field in this case (instead of `slotKey`), and the two apply functions branch on it. */
+function openWardrobePickerForExtra(memberId, extraId){
+  wardrobePickerContext = {memberId, extraId};
+  const m = members.find(x=>x.id===memberId);
+  $("wardrobePickerTitle").textContent = m ? `${m.emoji||"🧑🏽"} ${m.name}'s wardrobe` : "Choose from wardrobe";
+  renderWardrobePickerGrid();
+  $("wardrobePickerOverlay").classList.add("open");
+}
+function openSavedOutfitPickerForExtra(memberId, extraId){
+  savedOutfitPickerContext = {memberId, extraId};
+  const m = members.find(x=>x.id===memberId);
+  $("savedOutfitPickerTitle").textContent = m ? `${m.emoji||"🧑🏽"} ${m.name}'s outfits` : "Use a saved outfit";
+  renderSavedOutfitPickerGrid();
+  $("savedOutfitPickerOverlay").classList.add("open");
 }
 
 /* ---------- Weather override modal ---------- */
@@ -2317,10 +2534,6 @@ async function addOutfitItem(memberId, slotKey, inputEl){
 /* Adds a wardrobe-photo item (object form) to the current outfit slot, from the wardrobe picker modal */
 async function addWardrobeItemToOutfitSlot(wardrobeItem){
   if(!wardrobePickerContext) return;
-  const {memberId, slotKey} = wardrobePickerContext;
-  const t = activeTrip;
-  const dayData = (t.days||{})[activeDayDate]||{};
-  const existing = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
   const entry = {
     type: "wardrobe",
     itemId: wardrobeItem.id,
@@ -2328,6 +2541,28 @@ async function addWardrobeItemToOutfitSlot(wardrobeItem){
     photoURL: wardrobeItem.photoURL || null,
     category: wardrobeItem.category || "Other",
   };
+
+  if(wardrobePickerContext.extraId){
+    // ---- Target: an extra (backup) outfit, not tied to a day ----
+    const {extraId} = wardrobePickerContext;
+    const extras = [...(activeTrip.extraOutfits||[])];
+    const idx = extras.findIndex(e=>e.id===extraId);
+    if(idx===-1) return;
+    const existing = extras[idx].items||[];
+    extras[idx] = {...extras[idx], items:[...existing, entry]};
+    try{
+      await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+      activeTrip.extraOutfits = extras;
+      renderExtraOutfitsSection();
+    }catch(err){ setStatus("Couldn't add item: "+err.message,true); }
+    return;
+  }
+
+  // ---- Target: a specific day's outfit slot (unchanged from before) ----
+  const {memberId, slotKey} = wardrobePickerContext;
+  const t = activeTrip;
+  const dayData = (t.days||{})[activeDayDate]||{};
+  const existing = ((dayData.outfits||{})[memberId]||{})[slotKey]||[];
   const updated = [...existing, entry];
   try{
     await updateDoc(doc(db,"trips",activeTripDetailId),{
@@ -3711,6 +3946,33 @@ function renderSavedOutfitPickerGrid(){
 /* Adds every item from a saved outfit into the current slot, skipping any already present by itemId */
 async function applySavedOutfitToSlot(outfit){
   if(!savedOutfitPickerContext) return;
+
+  if(savedOutfitPickerContext.extraId){
+    // ---- Target: an extra (backup) outfit, not tied to a day ----
+    const {extraId} = savedOutfitPickerContext;
+    const extras = [...(activeTrip.extraOutfits||[])];
+    const idx = extras.findIndex(e=>e.id===extraId);
+    if(idx===-1) return;
+    const existing = extras[idx].items||[];
+    const existingWardrobeIds = new Set(
+      existing.filter(i=>i && typeof i==="object" && i.type==="wardrobe").map(i=>i.itemId)
+    );
+    const itemsToAdd = resolveOutfitItems(outfit).filter(w=>!existingWardrobeIds.has(w.id));
+    const newEntries = itemsToAdd.map(w=>({
+      type:"wardrobe", itemId:w.id, name:w.name, photoURL:w.photoURL||null, category:w.category||"Other"
+    }));
+    extras[idx] = {...extras[idx], items:[...existing, ...newEntries]};
+    try{
+      await updateDoc(doc(db,"trips",activeTripDetailId), {extraOutfits: extras});
+      activeTrip.extraOutfits = extras;
+      $("savedOutfitPickerOverlay").classList.remove("open");
+      savedOutfitPickerContext = null;
+      renderExtraOutfitsSection();
+    }catch(err){ setStatus("Couldn't apply outfit: "+err.message, true); }
+    return;
+  }
+
+  // ---- Target: a specific day's outfit slot (unchanged from before) ----
   const {memberId, slotKey} = savedOutfitPickerContext;
   const t = activeTrip;
   const dayData = (t.days||{})[activeDayDate]||{};
@@ -3938,7 +4200,7 @@ let activePackMemberId = null;
 /* Build deduplicated outfit items for one member across all days */
 function buildOutfitItems(trip, memberId){
   const days = generateDays(trip.startDate, trip.endDate);
-  const itemMap = {}; // dedup key -> {name, photoURL, category, days: Set}
+  const itemMap = {}; // dedup key -> {name, photoURL, category, days: Set, extraLabels: Set}
   days.forEach(date=>{
     const dayData = (trip.days||{})[date]||{};
     const memberOutfits = (dayData.outfits||{})[memberId]||{};
@@ -3955,12 +4217,25 @@ function buildOutfitItems(trip, memberId){
       });
     });
   });
+  // Fold in extra (backup) outfits for this person — not tied to a day, so tagged with their
+  // label instead. Items already counted from a specific day just gain an extra note, not a duplicate.
+  (trip.extraOutfits||[]).filter(e=>e.memberId===memberId).forEach(extra=>{
+    (extra.items||[]).forEach(item=>{
+      const isWardrobe = item && typeof item==="object" && item.type==="wardrobe";
+      const name = isWardrobe ? item.name : item;
+      const category = isWardrobe ? (item.category || "Other") : "Uncategorized";
+      const key = isWardrobe ? `w:${item.itemId}` : `t:${name.toLowerCase().trim()}`;
+      if(!itemMap[key]) itemMap[key] = {name, photoURL: isWardrobe?item.photoURL:null, category, days:new Set()};
+      if(!itemMap[key].extraLabels) itemMap[key].extraLabels = new Set();
+      itemMap[key].extraLabels.add(extra.label || "Extra");
+    });
+  });
   return Object.entries(itemMap).map(([key,val])=>({
     key:`outfit:${key}`,
     name:val.name,
     photoURL:val.photoURL,
     category:val.category,
-    note:[...val.days].join(", "),
+    note:[...(val.days||[]), ...(val.extraLabels||[])].join(", "),
   }));
 }
 
